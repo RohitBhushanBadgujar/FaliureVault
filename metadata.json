@@ -1,0 +1,6 @@
+{
+  "name": "FailureVault",
+  "description": "An elite strategic startup failure repository and recovery planner with automated Failure DNA alignment queries.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
