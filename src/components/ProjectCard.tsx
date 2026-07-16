@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Project } from '../types';
+import RevivalScore from './RevivalScore';
 
 interface ProjectCardProps {
   key?: string;
@@ -41,10 +42,7 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
           </div>
           
           <div className="flex flex-col items-end text-right">
-            <span className="text-[10px] font-sans uppercase tracking-wider text-text-muted mb-0.5">Revival Score</span>
-            <span className="text-xl font-display font-bold text-success">
-              {project.revivalPossibility}%
-            </span>
+            <RevivalScore score={project.revivalPossibility} size="sm" showLabel={false} />
           </div>
         </div>
 

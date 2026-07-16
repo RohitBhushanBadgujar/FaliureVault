@@ -5,7 +5,7 @@ export interface Project {
   industry: string;
   foundedYear: number;
   failedYear: number;
-  failureStage: 'Ideation' | 'MVP / Validation' | 'Early Traction' | 'Scale' | 'Mature Operational';
+  failureStage: string;
   teamSize: number;
   primaryFailureReason: string;
   potentialScore: number;
@@ -22,7 +22,7 @@ export interface Project {
   timeline?: { year: string; event: string; status: 'good' | 'neutral' | 'bad' }[];
 
   // Real-time Status Verification fields
-  companyStatus?: 'Active' | 'Struggling' | 'Shut Down' | 'Acquired' | 'Merged' | 'Inactive' | 'Unknown';
+  companyStatus?: string;
   strugglingCategory?: 'Struggling' | 'Pivoting' | 'Declining' | 'Losing Users' | 'Funding Issues' | 'Market Problems' | 'None';
   aiConfidence?: number;
   userSourceUrl?: string;

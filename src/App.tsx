@@ -10,9 +10,19 @@ import {
 import { jsPDF } from 'jspdf';
 import { Project } from './types';
 import { PRESEEDED_PROJECTS } from './data';
+import RevivalScore from './components/RevivalScore';
+import { 
+  subscribeToAuth, 
+  logoutUser, 
+  saveFirebaseUserProfile, 
+  saveFirebaseProject, 
+  getFirebaseUserProjects, 
+  getFirebaseUserProfile,
+  uploadProjectsBatch
+} from './lib/firebaseService';
+import { User } from 'firebase/auth';
 import WelcomeScreen from './components/WelcomeScreen';
 import LoginScreen from './components/LoginScreen';
-import WelcomeBackScreen from './components/WelcomeBackScreen';
 import ProjectCard from './components/ProjectCard';
 import ProjectDetail from './components/ProjectDetail';
 import ProjectWorkspace from './components/ProjectWorkspace';
@@ -111,7 +121,8 @@ export default function App() {
   };
 
   // Basic screen state router to handle Login/Welcome vs logged-in areas
-  const [screenState, setScreenState] = useState<'welcome' | 'welcome-back' | 'login' | 'vault' | 'project-detail' | 'workspace'>('welcome');
+  const [screenState, setScreenState] = useState<'welcome' | 'login' | 'vault' | 'project-detail' | 'workspace'>('welcome');
+  const [isAuthInitializing, setIsAuthInitializing] = useState(true);
 
   // Projects store with standard localStorage persistence
   const [projectsList, setProjectsList] = useState<Project[]>(() => {
@@ -153,12 +164,24 @@ export default function App() {
   // Selected state
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(PRESEEDED_PROJECTS[0]?.id || null);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   
   const handleRestoreDatabase = () => {
     setProjectsList(PRESEEDED_PROJECTS);
     localStorage.setItem('failurevault_projects', JSON.stringify(PRESEEDED_PROJECTS));
     logActivity("Re-synchronized entire FailureVault database with 15 clean master dossiers.");
-    setSyncStatus("Dossiers synchronized successfully.");
+    if (firebaseUser) {
+      uploadProjectsBatch(firebaseUser.uid, PRESEEDED_PROJECTS)
+        .then(() => {
+          setSyncStatus("Cloud database reset & synchronized successfully.");
+        })
+        .catch(err => {
+          console.error(err);
+          setSyncStatus("Local database reset successfully.");
+        });
+    } else {
+      setSyncStatus("Local database reset successfully.");
+    }
     setTimeout(() => {
       setSyncStatus(null);
     }, 4000);
@@ -199,6 +222,77 @@ export default function App() {
   const [selectedStageFilter, setSelectedStageFilter] = useState<string>('All');
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
 
+  // Listen for Firebase Auth changes on load
+  useEffect(() => {
+    const unsubscribe = subscribeToAuth(async (user) => {
+      if (user) {
+        setFirebaseUser(user);
+        setSyncStatus("Cloud Sync Engaged");
+        try {
+          const profile = await getFirebaseUserProfile(user.uid);
+          if (profile) {
+            setUserProfile({ name: profile.name, email: profile.email });
+            if (profile.bio) setUserBio(profile.bio);
+            if (profile.avatar) setUserAvatar(profile.avatar);
+            if (profile.savedProjectIds) setSavedProjectIds(profile.savedProjectIds);
+            if (profile.activityLogs) setActivityLogs(profile.activityLogs);
+          } else {
+            const name = user.email ? user.email.split('@')[0] : 'Innovator';
+            const initialProfile = {
+              name: name.charAt(0).toUpperCase() + name.slice(1),
+              email: user.email || 'anonymous@failurevault.com',
+              bio: 'Strategic Auditor & Venture Analyst.',
+              avatar: '🦊',
+              savedProjectIds: [],
+              activityLogs: [{ id: `act-${Date.now()}`, action: 'Initiated cloud sync.', time: 'Just now' }]
+            };
+            await saveFirebaseUserProfile(user.uid, initialProfile);
+            setUserProfile({ name: initialProfile.name, email: initialProfile.email });
+          }
+
+          const cloudProjs = await getFirebaseUserProjects(user.uid);
+          setProjectsList(prev => {
+            const combined = [...PRESEEDED_PROJECTS];
+            cloudProjs.forEach(proj => {
+              const index = combined.findIndex(p => p.id === proj.id);
+              if (index !== -1) {
+                combined[index] = { ...combined[index], ...proj };
+              } else {
+                combined.push(proj);
+              }
+            });
+            return combined;
+          });
+        } catch (err) {
+          console.error("Error synchronizing session:", err);
+        } finally {
+          setIsAuthInitializing(false);
+          setTimeout(() => setSyncStatus(null), 3000);
+        }
+      } else {
+        setFirebaseUser(null);
+        setUserProfile(null);
+        setScreenState('welcome');
+        setIsAuthInitializing(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Auto-sync user profile updates to Firestore
+  useEffect(() => {
+    if (firebaseUser && userProfile) {
+      saveFirebaseUserProfile(firebaseUser.uid, {
+        name: userProfile.name,
+        email: userProfile.email,
+        bio: userBio,
+        avatar: userAvatar,
+        savedProjectIds: savedProjectIds,
+        activityLogs: activityLogs
+      }).catch(err => console.error("Error syncing profile to cloud:", err));
+    }
+  }, [firebaseUser, userProfile?.name, userProfile?.email, userBio, userAvatar, savedProjectIds, activityLogs]);
+
   // Sync state changes with localStorage
   useEffect(() => {
     localStorage.setItem('failurevault_projects', JSON.stringify(projectsList));
@@ -212,12 +306,9 @@ export default function App() {
     }
   }, [selectedProjectId]);
 
-  // Handle successful login
-  const handleLoginSuccess = (name: string, email: string) => {
-    setUserProfile({ name, email });
-    localStorage.setItem('failurevault_user', JSON.stringify({ name, email }));
-    setScreenState('vault');
-    setNavTab('vault');
+  // Handle successful login with Firebase Auth
+  const handleLoginSuccess = async () => {
+    setScreenState('welcome');
   };
 
   // Create new custom blueprint
@@ -227,6 +318,9 @@ export default function App() {
     setScreenState('project-detail');
     setNavTab('vault');
     logActivity(`Drafted and added a custom failure blueprint case: "${newProject.name}".`);
+    if (firebaseUser) {
+      saveFirebaseProject(firebaseUser.uid, newProject).catch(e => console.error("Error saving project:", e));
+    }
   };
 
   // Re-build trigger from project detail page to redirect to Rebuild Tab
@@ -251,6 +345,9 @@ export default function App() {
     } else {
       setProjectsList(prev => [draftProject, ...prev]);
       setSelectedProjectId(draftProject.id);
+      if (firebaseUser) {
+        saveFirebaseProject(firebaseUser.uid, draftProject).catch(e => console.error("Error adopting project:", e));
+      }
     }
     setScreenState('vault');
     setNavTab('rebuild');
@@ -680,8 +777,22 @@ export default function App() {
       <div className="relative z-10 w-full h-full">
         <AnimatePresence mode="wait">
         
+        {/* Auth Initializing state */}
+        {isAuthInitializing && (
+          <motion.div
+            key="auth-loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="w-full h-screen flex flex-col items-center justify-center bg-bg-primary"
+          >
+            <div className="w-8 h-8 border-4 border-border-subtle border-t-accent rounded-full animate-spin mb-4" />
+            <p className="text-text-muted font-mono text-sm tracking-wider uppercase">Initializing Vault</p>
+          </motion.div>
+        )}
+
         {/* welcome screen router */}
-        {screenState === 'welcome' && (
+        {!isAuthInitializing && screenState === 'welcome' && (
           <motion.div
             key="welcome"
             initial={{ opacity: 0 }}
@@ -690,40 +801,17 @@ export default function App() {
             className="w-full h-full"
           >
             <WelcomeScreen 
-              onEnter={() => setScreenState(userProfile ? 'welcome-back' : 'login')} 
-            />
-          </motion.div>
-        )}
-
-        {/* welcome back screen router */}
-        {screenState === 'welcome-back' && userProfile && (
-          <motion.div
-            key="welcome-back"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="w-full h-full"
-          >
-            <WelcomeBackScreen
-              userProfile={userProfile}
+              onEnter={() => setScreenState('login')} 
               onContinue={() => {
                 setScreenState('vault');
                 setNavTab('vault');
               }}
-              onSwitchAccount={() => {
-                setUserProfile(null);
-                localStorage.removeItem('failurevault_user');
-                setScreenState('welcome');
-              }}
-              projectsList={projectsList}
-              onContinueProject={(projId) => {
-                setSelectedProjectId(projId);
-                setScreenState('vault');
-                setNavTab('rebuild');
-              }}
+              userProfile={userProfile}
             />
           </motion.div>
         )}
+
+
 
         {/* login screen router */}
         {screenState === 'login' && (
@@ -752,9 +840,15 @@ export default function App() {
             {/* Vault platform top toolbar header */}
             <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-border-subtle pb-6 mb-8 gap-6 text-left">
               <div>
-                <h1 className="font-display text-3xl tracking-tight text-text-primary flex items-center gap-1">
+                <h1 className="font-display text-3xl tracking-tight text-text-primary flex items-center gap-2">
                   <span className="font-bold">Failure</span>
                   <span className="text-accent font-medium">Vault</span>
+                  {firebaseUser && (
+                    <span className="text-[10px] font-mono bg-accent/10 text-accent border border-accent/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider animate-pulse flex items-center gap-1.5 self-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
+                      Cloud Sync
+                    </span>
+                  )}
                 </h1>
                 <p className="text-sm text-text-secondary font-sans mt-1">
                   Startup post-mortem archives and strategic pivot logs.
@@ -782,7 +876,12 @@ export default function App() {
 
                 {/* Logout */}
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    try {
+                      await logoutUser();
+                    } catch (e) {
+                      console.error("Logout failed:", e);
+                    }
                     setUserProfile(null);
                     localStorage.removeItem('failurevault_user');
                     setScreenState('welcome');
@@ -1179,9 +1278,13 @@ export default function App() {
                               project={activeProject}
                               onBackToVault={() => setNavTab('vault')}
                               onUpdateWorkspace={(upWS) => {
+                                const updatedProj = { ...activeProject, workspace: upWS };
                                 setProjectsList(prev => prev.map(pr => 
-                                  pr.id === activeProject.id ? { ...pr, workspace: upWS } : pr
+                                  pr.id === activeProject.id ? updatedProj : pr
                                 ));
+                                if (firebaseUser) {
+                                  saveFirebaseProject(firebaseUser.uid, updatedProj).catch(e => console.error("Error syncing workspace updates:", e));
+                                }
                               }}
                             />
                           </ErrorBoundary>
@@ -1234,9 +1337,9 @@ export default function App() {
                                 <span>Timeline:</span>
                                 <span className="text-text-primary font-medium">{p.foundedYear} - {p.failedYear}</span>
                               </div>
-                              <div className="flex justify-between border-b border-border-subtle pb-2">
+                              <div className="flex justify-between items-center border-b border-border-subtle pb-2">
                                 <span>Revival Score:</span>
-                                <span className="text-success font-medium">{p.revivalPossibility}%</span>
+                                <RevivalScore score={p.revivalPossibility} size="sm" showLabel={false} />
                               </div>
                               <div className="flex justify-between pb-1">
                                 <span>Status:</span>

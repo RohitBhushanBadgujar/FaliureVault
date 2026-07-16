@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Project, AIAnalysis } from '../types';
 import { jsPDF } from 'jspdf';
+import RevivalScore from './RevivalScore';
 
 interface ProjectDetailProps {
   project: Project;
@@ -843,13 +844,12 @@ export default function ProjectDetail({ project, onBack, onMakeActiveProject, is
 
           {/* Simple Scores Area */}
           <div className="flex items-center gap-6 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-8">
-            <div className="text-left">
-              <span className="text-[10px] text-slate-500 uppercase tracking-widest block mb-0.5">Potential Score</span>
-              <span className="text-2xl font-bold text-slate-200">{project.potentialScore}%</span>
+            <div className="text-left pr-4">
+              <span className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Potential Score</span>
+              <span className="text-2xl font-extrabold text-slate-200">{project.potentialScore}%</span>
             </div>
             <div className="text-left border-l border-white/10 pl-6">
-              <span className="text-[10px] text-slate-500 uppercase tracking-widest block mb-0.5">Can It Work Today?</span>
-              <span className="text-2xl font-bold text-emerald-400">{project.revivalPossibility}%</span>
+              <RevivalScore score={project.revivalPossibility} size="md" />
             </div>
           </div>
         </div>
