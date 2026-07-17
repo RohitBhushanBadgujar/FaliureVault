@@ -18,6 +18,8 @@ interface WelcomeScreenProps {
   onLogin?: (email: string, pass: string) => Promise<any>;
   onSignUp?: (email: string, pass: string, name: string) => Promise<any>;
   onGoogleSignIn?: () => Promise<any>;
+  onAdminClick?: () => void;
+  isAdminMode?: boolean;
 }
 
 /**
@@ -437,7 +439,9 @@ export default function WelcomeScreen({
   firebaseUser,
   onLogin,
   onSignUp,
-  onGoogleSignIn 
+  onGoogleSignIn,
+  onAdminClick,
+  isAdminMode
 }: WelcomeScreenProps) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authTab, setAuthTab] = useState<'signin' | 'signup'>('signin');
@@ -1156,8 +1160,18 @@ export default function WelcomeScreen({
       </AnimatePresence>
 
       {/* Global Footer */}
-      <footer className="py-10 text-center border-t border-border-subtle bg-bg-primary relative z-10">
+      <footer className="py-10 text-center border-t border-border-subtle bg-bg-primary relative z-10 flex flex-col items-center justify-center gap-4">
          <p className="text-text-muted font-sans text-sm font-medium">© {new Date().getFullYear()} FailureVault. All rights reserved.</p>
+         {onAdminClick && (
+           <button
+             type="button"
+             onClick={onAdminClick}
+             className="text-text-muted hover:text-accent font-mono text-xs cursor-pointer transition-colors flex items-center gap-1.5 bg-transparent border-none outline-none"
+           >
+             <ShieldCheck className="w-4 h-4" />
+             <span>{isAdminMode ? "Admin Console (Active)" : "Admin Portal"}</span>
+           </button>
+         )}
       </footer>
 
     </div>

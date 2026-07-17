@@ -15,11 +15,14 @@ interface ProjectDetailProps {
   onMakeActiveProject: (projectId: string) => void;
   isSaved?: boolean;
   onToggleSave?: () => void;
+  isAdmin?: boolean;
+  onDelete?: () => void;
 }
 
-export default function ProjectDetail({ project, onBack, onMakeActiveProject, isSaved = false, onToggleSave }: ProjectDetailProps) {
+export default function ProjectDetail({ project, onBack, onMakeActiveProject, isSaved = false, onToggleSave, isAdmin, onDelete }: ProjectDetailProps) {
   const [activeTab, setActiveTab] = useState<'funding' | 'product' | 'market' | 'execution' | 'timing'>('funding');
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const analysis = project.aiAnalysis;
   if (!analysis) {
@@ -809,6 +812,39 @@ export default function ProjectDetail({ project, onBack, onMakeActiveProject, is
               <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current text-emerald-400' : 'text-slate-400'}`} />
               {isSaved ? 'Saved Case' : 'Save to Vault'}
             </button>
+          )}
+
+          {isAdmin && onDelete && (
+            <div className="relative inline-flex items-center">
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-md text-xs font-bold transition-all cursor-pointer"
+                >
+                  <Skull className="w-3.5 h-3.5 text-rose-400" />
+                  Delete Project
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/30 p-1 rounded-md animate-pulse">
+                  <span className="text-[10px] text-rose-300 font-medium px-2">Delete?</span>
+                  <button
+                    onClick={() => {
+                      onDelete();
+                      setShowDeleteConfirm(false);
+                    }}
+                    className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold cursor-pointer transition-colors"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-2 py-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded text-[10px] cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

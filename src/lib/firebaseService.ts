@@ -5,7 +5,8 @@ import {
   collection, 
   getDocs, 
   writeBatch,
-  serverTimestamp 
+  serverTimestamp,
+  deleteDoc
 } from 'firebase/firestore';
 import { 
   signInWithEmailAndPassword, 
@@ -279,3 +280,16 @@ export async function uploadProjectsBatch(userId: string, projects: Project[]) {
   
   await batch.commit();
 }
+
+/**
+ * Delete a specific custom project from Firestore
+ */
+export async function deleteFirebaseProject(userId: string, projectId: string) {
+  try {
+    const docRef = doc(db, 'users', userId, 'projects', projectId);
+    await deleteDoc(docRef);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `users/${userId}/projects/${projectId}`);
+  }
+}
+

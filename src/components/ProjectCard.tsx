@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, Trash2 } from 'lucide-react';
 import { Project } from '../types';
 import RevivalScore from './RevivalScore';
 
@@ -8,9 +8,11 @@ interface ProjectCardProps {
   key?: string;
   project: Project;
   onClick: () => void;
+  isAdmin?: boolean;
+  onDelete?: (e: React.MouseEvent) => void;
 }
 
-export default function ProjectCard({ project, onClick }: ProjectCardProps) {
+export default function ProjectCard({ project, onClick, isAdmin, onDelete }: ProjectCardProps) {
   return (
     <motion.div
       onClick={onClick}
@@ -41,8 +43,20 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
             </div>
           </div>
           
-          <div className="flex flex-col items-end text-right">
+          <div className="flex flex-col items-end text-right gap-2">
             <RevivalScore score={project.revivalPossibility} size="sm" showLabel={false} />
+            {isAdmin && onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(e);
+                }}
+                className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all cursor-pointer shadow-sm flex items-center justify-center z-20"
+                title="Remove Project"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 

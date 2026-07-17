@@ -20,6 +20,7 @@ import FailureDnaComparator from './components/FailureDnaComparator';
 import InteractiveTutorial from './components/InteractiveTutorial';
 import GlobalSearchSpotlight from './components/GlobalSearchSpotlight';
 import ErrorBoundary from './components/ErrorBoundary';
+import AdminAccessModal from './components/AdminAccessModal';
 import { 
   subscribeToAuth, 
   logoutUser, 
@@ -31,6 +32,7 @@ import {
   saveFirebaseProject, 
   getFirebaseUserProjects, 
   uploadProjectsBatch,
+  deleteFirebaseProject,
   FirebaseUserProfile 
 } from './lib/firebaseService';
 
@@ -173,6 +175,50 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(PRESEEDED_PROJECTS[0]?.id || null);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
+
+  // Admin Mode state variables
+  const [isAdminMode, setIsAdminMode] = useState<boolean>(() => {
+    return localStorage.getItem('failurevault_admin_mode') === 'true';
+  });
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
+
+  // Admin Project Deletion Handler
+  const handleDeleteProject = async (projectId: string) => {
+    // 1. Remove project locally from state and localStorage
+    setProjectsList(prev => {
+      const next = prev.filter(p => p.id !== projectId);
+      const customOnly = next.filter(p => !PRESEEDED_PROJECTS.some(pre => pre.id === p.id));
+      localStorage.setItem('failurevault_projects', JSON.stringify(customOnly));
+      return next;
+    });
+
+    // 2. Clear selected project ID if it was deleted
+    if (selectedProjectId === projectId) {
+      setSelectedProjectId(null);
+      setScreenState('vault');
+    }
+
+    // 3. Remove from Saved/Bookmarks if bookmarked
+    if (savedProjectIds.includes(projectId)) {
+      setSavedProjectIds(prev => {
+        const next = prev.filter(id => id !== projectId);
+        localStorage.setItem('failurevault_saved_projects', JSON.stringify(next));
+        return next;
+      });
+    }
+
+    // 4. Log the activity
+    logActivity(`Permanently deleted project study: ${projectId}.`);
+
+    // 5. Delete from Firebase Firestore if user is authenticated
+    if (firebaseUser) {
+      try {
+        await deleteFirebaseProject(firebaseUser.uid, projectId);
+      } catch (error) {
+        console.error("Error deleting from firestore:", error);
+      }
+    }
+  };
 
   // Subscribe to Firebase Auth
   useEffect(() => {
@@ -816,6 +862,8 @@ export default function App() {
               onLogin={loginUser}
               onSignUp={signUpUser}
               onGoogleSignIn={signInWithGoogle}
+              onAdminClick={() => setIsAdminModalOpen(true)}
+              isAdminMode={isAdminMode}
             />
           </motion.div>
         )}
@@ -1166,6 +1214,8 @@ export default function App() {
                                 setSelectedProjectId(p.id);
                                 setScreenState('project-detail');
                               }}
+                              isAdmin={isAdminMode}
+                              onDelete={() => handleDeleteProject(p.id)}
                             />
                           </motion.div>
                         ))}
@@ -1580,8 +1630,15 @@ export default function App() {
 
             {/* Main vault footer */}
             <footer className="mt-16 border-t border-border-subtle pt-8 pb-4 text-center text-xs text-text-muted font-sans flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                FailureVault &copy; {new Date().getFullYear()} — Learn from the past to build the future.
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4">
+                <span>FailureVault &copy; {new Date().getFullYear()} — Learn from the past to build the future.</span>
+                <button
+                  onClick={() => setIsAdminModalOpen(true)}
+                  className="text-text-muted hover:text-accent font-mono text-xs cursor-pointer transition-colors flex items-center gap-1.5 bg-transparent border-none outline-none"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-accent" />
+                  <span>{isAdminMode ? "Admin Console (Active)" : "Admin Portal"}</span>
+                </button>
               </div>
               <div className="font-sans font-medium text-text-muted text-[10px] tracking-wider">v2.1.0 • Secure Connection</div>
             </footer>
@@ -1604,6 +1661,8 @@ export default function App() {
               onMakeActiveProject={handleEngageRebuild}
               isSaved={savedProjectIds.includes(activeProject.id)}
               onToggleSave={() => toggleSaveProject(activeProject.id)}
+              isAdmin={isAdminMode}
+              onDelete={() => handleDeleteProject(activeProject.id)}
             />
           </motion.div>
         )}
@@ -1637,6 +1696,16 @@ export default function App() {
         onSelectTab={(tabId) => {
           setNavTab(tabId);
         }}
+      />
+
+      {/* Admin Access & Moderation Modal */}
+      <AdminAccessModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        isAdminMode={isAdminMode}
+        setIsAdminMode={setIsAdminMode}
+        projects={projectsList}
+        onDeleteProject={handleDeleteProject}
       />
       </div>
     </div>
