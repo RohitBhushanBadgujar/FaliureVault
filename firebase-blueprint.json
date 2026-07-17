@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "User account settings, avatar, and logged activity",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "bio": { "type": "string", "maxLength": 1000 },
+        "avatar": { "type": "string", "maxLength": 100 },
+        "savedProjectIds": { "type": "array" },
+        "activityLogs": { "type": "array" },
+        "updatedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "email"]
+    },
+    "project": {
+      "title": "Venture Project",
+      "description": "Failed project blueprint and rebuild details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "tagline": { "type": "string", "maxLength": 200 },
+        "industry": { "type": "string", "maxLength": 100 },
+        "foundedYear": { "type": "integer" },
+        "failedYear": { "type": "integer" },
+        "failureStage": { "type": "string", "maxLength": 50 },
+        "teamSize": { "type": "integer" },
+        "primaryFailureReason": { "type": "string", "maxLength": 1000 },
+        "potentialScore": { "type": "integer" },
+        "revivalPossibility": { "type": "integer" },
+        "avatarEmoji": { "type": "string", "maxLength": 10 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "aiAnalysis": { "type": "object" },
+        "workspace": { "type": "object" },
+        "founder": { "type": "string", "maxLength": 100 },
+        "fundingRaised": { "type": "string", "maxLength": 50 },
+        "employeeCount": { "type": "integer" },
+        "timeline": { "type": "array" },
+        "companyStatus": { "type": "string", "maxLength": 100 },
+        "strugglingCategory": { "type": "string", "maxLength": 50 },
+        "aiConfidence": { "type": "number" },
+        "userSourceUrl": { "type": "string", "maxLength": 500 },
+        "userSourceReasoning": { "type": "string", "maxLength": 1000 },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "industry", "primaryFailureReason"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profiles"
+    },
+    "/users/{userId}/projects/{projectId}": {
+      "schema": "project",
+      "description": "User specific custom projects and workspaces"
+    }
+  }
+}

@@ -6,5 +6,7 @@
   "firestoreDatabaseId": "ai-studio-failurevault-ed5bceac-c44b-435a-9e7e-9150d760a541",
   "storageBucket": "nice-aviary-05xj8.firebasestorage.app",
   "messagingSenderId": "462998535418",
-  "measurementId": ""
+  "measurementId": "",
+  "oAuthClientId": "462998535418-7g7sbteme76ddp30trn16of6jufldqt7.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }

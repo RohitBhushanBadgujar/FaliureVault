@@ -20,6 +20,19 @@ import FailureDnaComparator from './components/FailureDnaComparator';
 import InteractiveTutorial from './components/InteractiveTutorial';
 import GlobalSearchSpotlight from './components/GlobalSearchSpotlight';
 import ErrorBoundary from './components/ErrorBoundary';
+import { 
+  subscribeToAuth, 
+  logoutUser, 
+  loginUser, 
+  signUpUser, 
+  signInWithGoogle, 
+  saveFirebaseUserProfile, 
+  getFirebaseUserProfile, 
+  saveFirebaseProject, 
+  getFirebaseUserProjects, 
+  uploadProjectsBatch,
+  FirebaseUserProfile 
+} from './lib/firebaseService';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -93,6 +106,9 @@ export default function App() {
     setActivityLogs(prev => {
       const updated = [{ id: `act-${Date.now()}`, action: actionText, time: 'Just now' }, ...prev.slice(0, 14)];
       localStorage.setItem('failurevault_activity_logs', JSON.stringify(updated));
+      if (firebaseUser) {
+        saveFirebaseUserProfile(firebaseUser.uid, { activityLogs: updated });
+      }
       return updated;
     });
   };
@@ -105,6 +121,9 @@ export default function App() {
         : [...prev, projectId];
       localStorage.setItem('failurevault_saved_projects', JSON.stringify(next));
       logActivity(prev.includes(projectId) ? `Removed venture ${projectId} from Bookmarks.` : `Saved venture ${projectId} inside Bookmarks repository.`);
+      if (firebaseUser) {
+        saveFirebaseUserProfile(firebaseUser.uid, { savedProjectIds: next });
+      }
       return next;
     });
   };
@@ -154,7 +173,84 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(PRESEEDED_PROJECTS[0]?.id || null);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
+
+  // Subscribe to Firebase Auth
+  useEffect(() => {
+    setIsAuthInitializing(true);
+    const unsubscribe = subscribeToAuth(async (user) => {
+      if (user) {
+        setFirebaseUser(user);
+        try {
+          // Fetch user profile from Firestore
+          const profile = await getFirebaseUserProfile(user.uid);
+          if (profile) {
+            setUserProfile({ name: profile.name, email: profile.email });
+            if (profile.bio) setUserBio(profile.bio);
+            if (profile.avatar) setUserAvatar(profile.avatar);
+            if (profile.savedProjectIds) setSavedProjectIds(profile.savedProjectIds);
+            if (profile.activityLogs) setActivityLogs(profile.activityLogs);
+          } else {
+            // Profile does not exist yet (maybe created via other flow), create one
+            const newProfile: FirebaseUserProfile = {
+              name: user.displayName || user.email?.split('@')[0] || 'Innovator',
+              email: user.email || '',
+              bio: userBio,
+              avatar: userAvatar,
+              savedProjectIds: savedProjectIds,
+              activityLogs: activityLogs,
+            };
+            await saveFirebaseUserProfile(user.uid, newProfile);
+            setUserProfile({ name: newProfile.name, email: newProfile.email });
+          }
+
+          // Fetch user projects from Firestore
+          const dbProjects = await getFirebaseUserProjects(user.uid);
+          if (dbProjects && dbProjects.length > 0) {
+            // Merge with PRESEEDED_PROJECTS so any default ones are present, but user modifications override them
+            setProjectsList(prev => {
+              const combined = [...PRESEEDED_PROJECTS];
+              dbProjects.forEach(dbProj => {
+                const index = combined.findIndex(p => p.id === dbProj.id);
+                if (index !== -1) {
+                  combined[index] = { ...combined[index], ...dbProj };
+                } else {
+                  combined.push(dbProj);
+                }
+              });
+              return combined;
+            });
+          } else {
+            // No custom projects in Firestore yet, batch upload the local ones to initiate database
+            await uploadProjectsBatch(user.uid, PRESEEDED_PROJECTS);
+          }
+        } catch (err) {
+          console.error("Error synchronizing with Firestore:", err);
+        }
+      } else {
+        setFirebaseUser(null);
+      }
+      setIsAuthInitializing(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
   
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      setFirebaseUser(null);
+      setUserProfile({ name: 'Innovator', email: 'innovator@failurevault.com' });
+      setUserBio('Strategic Auditor & Venture Analyst. Curating lessons from historically defunct tech blueprints to guide tomorrow\'s builds.');
+      setUserAvatar('🦊');
+      setSavedProjectIds([]);
+      setProjectsList(PRESEEDED_PROJECTS);
+      setScreenState('welcome');
+      logActivity("Logged out from Firebase security session.");
+    } catch (err) {
+      console.error("Error signing out:", err);
+    }
+  };
+
   const handleRestoreDatabase = () => {
     setProjectsList(PRESEEDED_PROJECTS);
     localStorage.setItem('failurevault_projects', JSON.stringify(PRESEEDED_PROJECTS));
@@ -224,6 +320,9 @@ export default function App() {
     setScreenState('project-detail');
     setNavTab('vault');
     logActivity(`Drafted and added a custom failure blueprint case: "${newProject.name}".`);
+    if (firebaseUser) {
+      saveFirebaseProject(firebaseUser.uid, newProject);
+    }
   };
 
   // Re-build trigger from project detail page to redirect to Rebuild Tab
@@ -248,6 +347,9 @@ export default function App() {
     } else {
       setProjectsList(prev => [draftProject, ...prev]);
       setSelectedProjectId(draftProject.id);
+      if (firebaseUser) {
+        saveFirebaseProject(firebaseUser.uid, draftProject);
+      }
     }
     setScreenState('vault');
     setNavTab('rebuild');
@@ -709,7 +811,11 @@ export default function App() {
                 setScreenState('vault');
                 setNavTab('vault');
               }}
-              userProfile={userProfile}
+              userProfile={firebaseUser ? userProfile : null}
+              firebaseUser={firebaseUser}
+              onLogin={loginUser}
+              onSignUp={signUpUser}
+              onGoogleSignIn={signInWithGoogle}
             />
           </motion.div>
         )}
@@ -738,6 +844,35 @@ export default function App() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
+                {/* Firebase Authentication Status badge */}
+                {firebaseUser ? (
+                  <div className="flex items-center gap-2 px-3.5 py-2.5 bg-success/10 border border-success/20 rounded-xl text-xs font-mono font-medium text-success text-left">
+                    <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                    <span>SECURE: {firebaseUser.email}</span>
+                    <button 
+                      onClick={handleLogout}
+                      className="ml-2 hover:text-rose-400 text-text-muted transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Sign Out from Secure Session"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-3.5 py-2.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-xs font-mono font-medium text-yellow-400 text-left">
+                    <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                    <span>GUEST MODULE</span>
+                    <button 
+                      onClick={() => {
+                        setScreenState('welcome');
+                      }}
+                      className="ml-2 hover:text-white text-text-muted transition-colors flex items-center gap-1 cursor-pointer font-bold underline"
+                      title="Sign In to Save to Database"
+                    >
+                      Sign In
+                    </button>
+                  </div>
+                )}
+
                 {/* Tour */}
                 <button
                   onClick={() => setIsTutorialOpen(true)}
@@ -1146,6 +1281,9 @@ export default function App() {
                                 setProjectsList(prev => prev.map(pr => 
                                   pr.id === activeProject.id ? updatedProj : pr
                                 ));
+                                if (firebaseUser) {
+                                  saveFirebaseProject(firebaseUser.uid, updatedProj);
+                                }
                               }}
                             />
                           </ErrorBoundary>
