@@ -118,7 +118,12 @@ export default function NewProjectModal({ isOpen, onClose, onProjectCreated }: N
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !industry.trim() || !primaryFailureReason.trim()) {
+    
+    const cleanName = name.trim();
+    const cleanIndustry = industry.trim();
+    const cleanReason = primaryFailureReason.trim();
+
+    if (!cleanName || !cleanIndustry || !cleanReason) {
       setErrorMsg('Please enter Name, Industry, and Primary Failure Reason.');
       return;
     }
@@ -128,16 +133,83 @@ export default function NewProjectModal({ isOpen, onClose, onProjectCreated }: N
       return;
     }
 
+    // Comprehensive client-side validation
+    if (cleanName.length < 2) {
+      setErrorMsg('Project or Company Name must be at least 2 characters long.');
+      return;
+    }
+    if (cleanIndustry.length < 2) {
+      setErrorMsg('Industry Sector must be at least 2 characters long.');
+      return;
+    }
+    if (cleanReason.length < 12) {
+      setErrorMsg('Please provide a more descriptive Primary Root Failure Reason (minimum 12 characters). This helps the strategic AI generate an accurate recovery blueprint.');
+      return;
+    }
+
+    // Repeated letters pattern (keyboard smash)
+    const repeatRegex = /(.)\1{4,}/;
+    if (repeatRegex.test(cleanName) || repeatRegex.test(cleanIndustry) || repeatRegex.test(cleanReason)) {
+      setErrorMsg('The submitted text contains suspicious repeating character patterns (e.g. "aaaa"). Please input legitimate business details.');
+      return;
+    }
+
+    // Keyboard smash and test patterns check
+    const spamPatterns = [
+      /^[asdfghjkl;']{4,}$/i,
+      /^[qwertyuiop]{4,}$/i,
+      /^[zxcvbnm,./]{4,}$/i,
+      /^12345/i,
+      /^test(ing)?$/i,
+      /^asdf$/i,
+      /^abc$/i,
+      /^dummy$/i,
+      /^fake$/i,
+      /^none$/i,
+      /^nothing$/i,
+      /^null$/i,
+      /^undefined$/i,
+      /^placeholder$/i
+    ];
+
+    if (
+      spamPatterns.some(p => p.test(cleanName)) ||
+      spamPatterns.some(p => p.test(cleanIndustry)) ||
+      spamPatterns.some(p => p.test(cleanReason))
+    ) {
+      setErrorMsg('The entered details appear to be random characters or placeholder test entries. Please provide real, historical startup details.');
+      return;
+    }
+
+    // Vowel distribution check
+    const checkVowelRatio = (str: string) => {
+      const lettersOnly = str.replace(/[^a-zA-Z]/g, '');
+      if (lettersOnly.length > 7) {
+        const vowels = lettersOnly.match(/[aeiouAEIOU]/g);
+        const vowelCount = vowels ? vowels.length : 0;
+        const ratio = vowelCount / lettersOnly.length;
+        if (ratio < 0.1 || ratio > 0.9) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (checkVowelRatio(cleanName) || checkVowelRatio(cleanIndustry)) {
+      setErrorMsg('Unusual character distributions detected. Please verify your Project Name and Industry Sector spelling.');
+      return;
+    }
+
     setErrorMsg('');
     setIsAnalyzing(true);
     setAnalysisStep(0);
 
     try {
-      // First, validate the startup
+      // First, validate the startup against search grounding
       const valRes = await fetch('/api/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, industry })
+        body: JSON.stringify({ name: cleanName, industry: cleanIndustry })
       });
       
       const validation = await valRes.json();
@@ -147,7 +219,11 @@ export default function NewProjectModal({ isOpen, onClose, onProjectCreated }: N
         return;
       }
     } catch (e) {
-      console.error('Validation failed, proceeding anyway', e);
+      console.error('Validation API error:', e);
+      // If validation call failed completely, let's stop and request retry
+      setErrorMsg('Could not reach the validation server. Please verify your connection and try again.');
+      setIsAnalyzing(false);
+      return;
     }
 
     // Advanced automated step sequencing for user delight

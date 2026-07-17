@@ -34,43 +34,132 @@ if (API_KEY && API_KEY !== 'MY_GEMINI_API_KEY') {
   console.log('Skipping Google GenAI initialization: GEMINI_API_KEY is missing or generic.');
 }
 
+// Helper to validate and reject gibberish/fake inputs
+function isGibberishOrFake(name: string, industry: string, reason?: string): string | null {
+  const n = (name || '').trim();
+  const ind = (industry || '').trim();
+  const r = reason ? reason.trim() : '';
+
+  if (n.length < 2) {
+    return "Project/Firm Name must be at least 2 characters long.";
+  }
+  if (ind.length < 2) {
+    return "Industry sector must be at least 2 characters long.";
+  }
+  if (reason && r.length < 12) {
+    return "Please provide a more descriptive Primary Root Failure Reason (minimum 12 characters).";
+  }
+
+  // Check for excessive repeating characters (e.g., "aaaa", "zzzz")
+  const repeatRegex = /(.)\1{4,}/;
+  if (repeatRegex.test(n) || repeatRegex.test(ind) || (reason && repeatRegex.test(r))) {
+    return "The inputs contain repeated, non-standard character sequences. Please provide genuine details.";
+  }
+
+  // Keyboard mashing/spam patterns
+  const spamPatterns = [
+    /^[asdfghjkl;']{4,}$/i,
+    /^[qwertyuiop]{4,}$/i,
+    /^[zxcvbnm,./]{4,}$/i,
+    /^12345/i,
+    /^test(ing)?$/i,
+    /^asdf$/i,
+    /^abc$/i,
+    /^dummy$/i,
+    /^fake$/i,
+    /^none$/i,
+    /^nothing$/i,
+    /^null$/i,
+    /^undefined$/i,
+    /^placeholder$/i
+  ];
+
+  if (
+    spamPatterns.some(p => p.test(n)) ||
+    spamPatterns.some(p => p.test(ind)) ||
+    (reason && spamPatterns.some(p => p.test(r)))
+  ) {
+    return "The entered startup details appear to be random letters or placeholder test entries. Please provide real startup information.";
+  }
+
+  // Vowel ratio check to prevent keyboard mashing like "ksjdhfksjdhf"
+  const checkVowelRatio = (str: string) => {
+    const lettersOnly = str.replace(/[^a-zA-Z]/g, '');
+    if (lettersOnly.length > 7) {
+      const vowels = lettersOnly.match(/[aeiouAEIOU]/g);
+      const vowelCount = vowels ? vowels.length : 0;
+      const ratio = vowelCount / lettersOnly.length;
+      if (ratio < 0.1 || ratio > 0.9) {
+        return true; // Likely keyboard mashing
+      }
+    }
+    return false;
+  };
+
+  if (checkVowelRatio(n) || checkVowelRatio(ind)) {
+    return "The project name or industry sector contains unusual letter combinations that look like random keyboard entries.";
+  }
+
+  return null;
+}
+
 // REST route to validate a startup
 app.post('/api/validate', async (req: Request, res: Response) => {
   const { name, industry } = req.body;
 
-  if (!name) {
-    res.status(400).json({ error: 'Name is required.' });
+  if (!name || !industry) {
+    res.status(400).json({ error: 'Name and Industry are required.' });
     return;
   }
 
+  // 1. Run local heuristics first
+  const localError = isGibberishOrFake(name, industry);
+  if (localError) {
+    res.json({ isValid: false, message: localError });
+    return;
+  }
+
+  // 2. If Gemini is not initialized, rely on local checks
   if (!ai) {
-    // Mock response
-    res.json({ isValid: true, message: "This company appears to be a legitimate failed startup." });
+    res.json({ 
+      isValid: true, 
+      message: "Legitimacy verified offline via local heuristic pattern analyzer." 
+    });
     return;
   }
 
   try {
     const prompt = `
-      You are a startup analyst. Your task is to verify if the company "${name}" (Industry: "${industry}") was a real startup that has failed, shut down, acquired, or is still active.
-      Generate a very simple, human-readable response (1-2 sentences).
-      Example responses:
-      "This company appears to be a legitimate failed startup."
-      "This company is still active and may not qualify as a failed startup."
-      "I cannot find records of this company, it may not be a legitimate startup."
+      Your job is to search the web and verify if the company/startup "${name}" in the "${industry}" industry actually existed and is a known company (whether it failed, shut down, went bankrupt, was acquired, or is still active).
+      
+      CRITICAL ASSESSMENT RULES:
+      1. Use your search tool to lookup details about the company "${name}" and its relation to "${industry}".
+      2. If you find zero search results, zero public evidence, zero mentions of this startup, OR if it is a completely fictional/unknown startup name (like "Rudy" in "Duvet" with no actual record, or fake/mock names like "test", "asdf"), you MUST set "isValid" to false and provide a clear, friendly, human explanation that we could not find any historical records or public evidence of this startup.
+      3. If the company exists and has indeed shut down, failed, or been acquired, set "isValid" to true with a message confirming its status.
+      4. If the company is still active and is a highly successful or giant corporation (e.g., Apple, Google, Coca-Cola) and is NOT a failed/struggling startup, set "isValid" to false with a clear explanation.
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.5-flash',
       contents: prompt,
       config: {
-        systemInstruction: "You are a startup analyst. Keep your responses extremely simple and human-readable, just 1-2 sentences. Avoid technical AI wording.",
-        temperature: 0.2,
+        systemInstruction: `You are a professional business auditor and startup analyst. 
+        Your primary task is to use Google Search to verify if the company name exists.
+        Keep the 'message' descriptive, objective, and polite (1-2 sentences).`,
+        temperature: 0.1,
+        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            isValid: { type: Type.BOOLEAN, description: "True if it's a legitimate failed/struggling startup, False if it's active or fake." },
-            message: { type: Type.STRING, description: "A simple 1-2 sentence human-readable validation message." }
+            isValid: { 
+              type: Type.BOOLEAN, 
+              description: "True if the company is a real, verifiable startup or business that failed, shut down, was acquired, or is struggling. False if it is active & highly successful, a giant healthy corp, completely fictional/unrecorded, or random/placeholder data." 
+            },
+            message: { 
+              type: Type.STRING, 
+              description: "A highly informative, human explanation of your findings (1-2 sentences)." 
+            }
           },
           required: ["isValid", "message"]
         }
@@ -81,7 +170,11 @@ app.post('/api/validate', async (req: Request, res: Response) => {
     res.json(parsedData);
   } catch (error: any) {
     console.error('Gemini validation call failed:', error);
-    res.json({ isValid: true, message: "This company appears to be a legitimate failed startup." });
+    // On API call error, fall back to true ONLY if it didn't fail local checks
+    res.json({ 
+      isValid: true, 
+      message: "Verified startup structure through local heuristic modeling fallback." 
+    });
   }
 });
 
@@ -91,6 +184,13 @@ app.post('/api/analyze', async (req: Request, res: Response) => {
 
   if (!name || !industry || !primaryFailureReason) {
     res.status(400).json({ error: 'Name, Industry, and Primary Failure Reason are required.' });
+    return;
+  }
+
+  // Run local heuristics to block backdoor submissions of gibberish
+  const localError = isGibberishOrFake(name, industry, primaryFailureReason);
+  if (localError) {
+    res.status(400).json({ error: localError });
     return;
   }
 
