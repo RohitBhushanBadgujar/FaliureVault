@@ -188,8 +188,15 @@ export async function signInWithGoogle(): Promise<{ user: User; profile: Firebas
       });
     }
     return { user, profile, isNew };
-  } catch (err) {
+  } catch (err: any) {
     console.error('Google Sign-In error:', err);
+    if (err.code === 'auth/popup-closed-by-user') {
+      throw new Error("The Sign-In popup was closed before completion. If you are in the AI Studio preview iframe, please use the 'Open in New Tab' button below to authenticate.");
+    } else if (err.code === 'auth/cancelled-popup-request') {
+      throw new Error("The Sign-In request was cancelled or blocked. Please verify your browser popup permissions or try opening in a new tab.");
+    } else if (err.code === 'auth/popup-blocked') {
+      throw new Error("The Sign-In popup was blocked by your browser. Please allow popups for this site or open in a new tab.");
+    }
     throw err;
   }
 }

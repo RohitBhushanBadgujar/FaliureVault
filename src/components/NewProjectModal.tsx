@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Sparkles, AlertCircle, RefreshCw, Layers, ShieldAlert, FileText } from 'lucide-react';
+import { 
+  X, Sparkles, AlertCircle, RefreshCw, Check, ChevronDown, 
+  ArrowRight, ArrowLeft, HelpCircle, ShieldAlert,
+  Search, Info, ShieldCheck, Building, AlertTriangle, ListFilter
+} from 'lucide-react';
 import { Project } from '../types';
 
 interface NewProjectModalProps {
@@ -9,224 +13,192 @@ interface NewProjectModalProps {
   onProjectCreated: (newProject: Project) => void;
 }
 
-function generateLocalProjectAnalysis(
-  name: string,
-  industry: string,
-  foundedYear: number,
-  failedYear: number,
-  failureStage: string,
-  teamSize: number,
-  primaryFailureReason: string,
-  description: string
-) {
-  const potentialScore = Math.floor(65 + Math.random() * 20);
-  const revivalPossibility = Math.floor(68 + Math.random() * 20);
-  const emojis = ['⚡', '🚁', '⌚', '📡', '💡', '🧪', '🤖', '🔋', '🏥', '📦'];
-  const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+const SECTORS = [
+  "Artificial Intelligence (AI)",
+  "FinTech (Financial Technology)",
+  "EdTech (Educational Technology)",
+  "ClimateTech & Sustainability",
+  "Web3, Blockchain & Crypto",
+  "SaaS (Software as a Service)",
+  "E-Commerce & Retail Tech",
+  "BioTech & Genomics",
+  "HealthTech & Digital Health",
+  "DeepTech & Quantum Computing",
+  "Developer Tools & Infra",
+  "Cybersecurity",
+  "PropTech (Property Technology)",
+  "AgriTech & FoodTech",
+  "AdTech & Marketing Tech",
+  "Logistics & Supply Chain",
+  "Mobility & Autonomous Vehicles",
+  "MedTech (Medical Devices)",
+  "SpaceTech & Aerospace",
+  "Entertainment & Gaming Tech",
+  "Social Networks & Messaging"
+];
 
-  return {
-    name,
-    tagline: `${name} — Decoupled software iteration of legacy model`,
-    potentialScore,
-    revivalPossibility,
-    avatarEmoji: randomEmoji,
-    aiAnalysis: {
-      summary: `The company operated in ${industry} and spent too much money during its ${failureStage} stage before proving users actually needed the product. Specifically, it collapsed due to: "${primaryFailureReason}". Rebuilding this requires replacing heavy pre-development capital expenditures with agile testing, focusing entirely on a software-only middleware layer to avoid early overhead.`,
-      keyMistakes: [
-        'High pre-validation burn rate: Heavy expenditure on building deep customized features before verifying customer demand.',
-        `High capital overhead: Launching custom hardware or operational resources before securing high-volume regulatory certificates or customer contracts.`,
-        'Delayed feedback loop: Lack of early telemetry or direct user interviews to guide incremental releases.'
-      ],
-      rootCauses: {
-        funding: 'High direct burn rate on non-core utilities with low liquidity reserves backing up launch delays.',
-        product: 'Overspecified early architecture built before the core utility was validated by active customer cohorts.',
-        market: 'Customer hesitancy over high initial upfront fees and steep integration complexity.',
-        execution: 'Heavy developer iteration prioritizing custom edge-cases rather than launching simple customer pilots.',
-        timing: 'Launched before modern APIs and cloud infrastructure made low-cost operational pathways accessible.'
-      },
-      failureDNA: [
-        `Initiated operations in the ${industry} sector targeting regional gaps.`,
-        `Encountered severe blockers: "${primaryFailureReason}".`,
-        'Faced immediate working capital exhaustion from prolonged development cycles.',
-        'Resulted in operational wind-down and project closure.'
-      ],
-      revivalProbability: revivalPossibility,
-      marketOpportunity: `A real market opportunity exists in ${industry} by replacing complex physical operations with decentralized APIs and specialized software integrations that connect pre-existing suppliers directly to users.`,
-      newRisks: [
-        'Existing platforms introducing similar feature expansions to their user base.',
-        'Increasing data compliance laws in high-regulatory environments.'
-      ],
-      modernAlternatives: [
-        'Pivot to a software-first solution with zero manufacturing dependencies.',
-        'Act as a specialized telemetry or integration partner for pre-existing players.'
-      ],
-      suggestedImprovements: [
-        'Deploy an automated onboarding guide to lower integration time to under 10 minutes.',
-        'Leverage modern serverless cloud setups to reduce inactive running costs to near zero.'
-      ],
-      advisoryAnswers: {
-        whatToAvoid: 'Do not raise large initial venture debt or build custom high-cost setups. Avoid proprietary databases.',
-        whatToImprove: 'Focus entirely on a single validated high-impact workflow to prove structural product usefulness.',
-        modernTechToLeverage: 'Cloud functions, Stripe API for multi-vendor splits, and basic Next.js/React layouts.',
-        changedMarketConditions: 'Sovereign clean energy incentives are active, battery/cloud hosting costs are 80% lower, and target customers are fully habituated to digital-first business workflows.',
-        v2ProductVision: `FailureVault v2 concept: "${name} Core" — A capital-efficient, software-only configuration focusing exclusively on solving the primary bottleneck.`
-      }
-    },
-    suggestedTasks: [
-      { title: 'Examine standard APIs and reusable components to build the new skeleton', category: 'Research', priority: 'High' },
-      { title: 'Create a single-flow functional interactive MVP wireframe', category: 'MVP Rebuild', priority: 'High' },
-      { title: 'Launch a simple landing page to test click-through demand on the new v2 value pitch', category: 'Market Validation', priority: 'High' },
-      { title: 'Establish an offshore low-variable budgeting plan (<$50/mo)', category: 'Capital / Funding', priority: 'Medium' },
-      { title: 'Formulate an interview questionnaire to gather raw feedback from 5 prospective customers', category: 'Market Validation', priority: 'Medium' }
-    ],
-    riskMonitor: {
-      execution: Math.floor(30 + Math.random() * 30),
-      market: Math.floor(25 + Math.random() * 30),
-      funding: Math.floor(40 + Math.random() * 30)
-    }
-  };
-}
+const STATUS_OPTIONS = [
+  "Failed",
+  "Acquired",
+  "Bankrupt",
+  "Pivoted",
+  "Closed",
+  "Still Operating"
+];
 
 export default function NewProjectModal({ isOpen, onClose, onProjectCreated }: NewProjectModalProps) {
+  // Wizard steps: 0 = Basics, 1 = Operations & History, 2 = AI Verification Report
+  const [currentStep, setCurrentStep] = useState(0);
+  
+  // Form Field States
   const [name, setName] = useState('');
+  const [founders, setFounders] = useState('');
+  const [country, setCountry] = useState('');
   const [industry, setIndustry] = useState('');
-  const [foundedYear, setFoundedYear] = useState(2021);
-  const [failedYear, setFailedYear] = useState(2024);
-  const [failureStage, setFailureStage] = useState<Project['failureStage']>('MVP / Validation');
-  const [teamSize, setTeamSize] = useState(5);
-  const [primaryFailureReason, setPrimaryFailureReason] = useState('');
+  const [foundedYear, setFoundedYear] = useState('');
+  const [failedYear, setFailedYear] = useState('');
+  const [currentStatus, setCurrentStatus] = useState('Failed');
+  const [teamSize, setTeamSize] = useState('');
+  const [fundingRaised, setFundingRaised] = useState('');
   const [description, setDescription] = useState('');
-  
-  // Real-time Status Verification states
-  const [companyStatus, setCompanyStatus] = useState<Project['companyStatus']>('Shut Down');
-  const [strugglingCategory, setStrugglingCategory] = useState<Project['strugglingCategory']>('None');
-  const [sourceUrl, setSourceUrl] = useState('');
-  const [sourceReasoning, setSourceReasoning] = useState('');
-  
+  const [whyFailed, setWhyFailed] = useState('');
+  const [majorMistakes, setMajorMistakes] = useState('');
+  const [evidenceSource, setEvidenceSource] = useState('');
+
+  // Search dropdown states for Industry
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Verification & Review States
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
+  const [verificationResult, setVerificationResult] = useState<any>(null);
+
+  // Declaration Checkboxes (required if verification is low/medium confidence or needs_declaration)
+  const [declAccuracy, setDeclAccuracy] = useState(false);
+  const [declUnverified, setDeclUnverified] = useState(false);
+  const [declResponsibility, setDeclResponsibility] = useState(false);
 
   const loadingSteps = [
-    'Initializing neural failure classification...',
-    'Scanning industry regulatory landscape and historical index databases...',
-    'Deconstructing structural business model and cash-flow timeline mistakes...',
-    'Evaluating macro condition indicators and modern solid-state technology stacks...',
-    'Synthesizing clinical-grade advisory notes and framing custom tasks...',
-    'Assembling operational recovery workspace and compiling DNA chain...'
+    'Initializing secure failure verification channel...',
+    'Analyzing submitted operational timeline consistency...',
+    'Performing public record and cross-registry search...',
+    'Evaluating provided market sector and failure context...',
+    'Formulating post-mortem error analysis and DNA profile...',
+    'Preparing final validation assessment and peer-review dossier...'
   ];
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const cleanName = name.trim();
-    const cleanIndustry = industry.trim();
-    const cleanReason = primaryFailureReason.trim();
-
-    if (!cleanName || !cleanIndustry || !cleanReason) {
-      setErrorMsg('Please enter Name, Industry, and Primary Failure Reason.');
-      return;
-    }
-
-    if ((companyStatus === 'Active' || companyStatus === 'Struggling') && !sourceUrl.trim()) {
-      setErrorMsg('Please provide a valid source link/supporting URL for active status verification.');
-      return;
-    }
-
-    // Comprehensive client-side validation
-    if (cleanName.length < 2) {
-      setErrorMsg('Project or Company Name must be at least 2 characters long.');
-      return;
-    }
-    if (cleanIndustry.length < 2) {
-      setErrorMsg('Industry Sector must be at least 2 characters long.');
-      return;
-    }
-    if (cleanReason.length < 12) {
-      setErrorMsg('Please provide a more descriptive Primary Root Failure Reason (minimum 12 characters). This helps the strategic AI generate an accurate recovery blueprint.');
-      return;
-    }
-
-    // Repeated letters pattern (keyboard smash)
-    const repeatRegex = /(.)\1{4,}/;
-    if (repeatRegex.test(cleanName) || repeatRegex.test(cleanIndustry) || repeatRegex.test(cleanReason)) {
-      setErrorMsg('The submitted text contains suspicious repeating character patterns (e.g. "aaaa"). Please input legitimate business details.');
-      return;
-    }
-
-    // Keyboard smash and test patterns check
-    const spamPatterns = [
-      /^[asdfghjkl;']{4,}$/i,
-      /^[qwertyuiop]{4,}$/i,
-      /^[zxcvbnm,./]{4,}$/i,
-      /^12345/i,
-      /^test(ing)?$/i,
-      /^asdf$/i,
-      /^abc$/i,
-      /^dummy$/i,
-      /^fake$/i,
-      /^none$/i,
-      /^nothing$/i,
-      /^null$/i,
-      /^undefined$/i,
-      /^placeholder$/i
-    ];
-
-    if (
-      spamPatterns.some(p => p.test(cleanName)) ||
-      spamPatterns.some(p => p.test(cleanIndustry)) ||
-      spamPatterns.some(p => p.test(cleanReason))
-    ) {
-      setErrorMsg('The entered details appear to be random characters or placeholder test entries. Please provide real, historical startup details.');
-      return;
-    }
-
-    // Vowel distribution check
-    const checkVowelRatio = (str: string) => {
-      const lettersOnly = str.replace(/[^a-zA-Z]/g, '');
-      if (lettersOnly.length > 7) {
-        const vowels = lettersOnly.match(/[aeiouAEIOU]/g);
-        const vowelCount = vowels ? vowels.length : 0;
-        const ratio = vowelCount / lettersOnly.length;
-        if (ratio < 0.1 || ratio > 0.9) {
-          return true;
-        }
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
       }
-      return false;
-    };
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-    if (checkVowelRatio(cleanName) || checkVowelRatio(cleanIndustry)) {
-      setErrorMsg('Unusual character distributions detected. Please verify your Project Name and Industry Sector spelling.');
+  const filteredSectors = SECTORS.filter(s => 
+    s.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleSectorSelect = (sector: string) => {
+    setIndustry(sector);
+    setSearchQuery(sector);
+    setDropdownOpen(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!dropdownOpen) {
+      if (e.key === 'ArrowDown') {
+        setDropdownOpen(true);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev + 1) % filteredSectors.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev - 1 + filteredSectors.length) % filteredSectors.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredSectors[activeIndex]) {
+        handleSectorSelect(filteredSectors[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setDropdownOpen(false);
+    }
+  };
+
+  const validateStep0 = () => {
+    setErrorMsg('');
+    if (!name.trim()) return 'Startup Name is required.';
+    if (!founders.trim()) return 'Founder(s) information is required.';
+    if (!country.trim()) return 'Country / Market is required.';
+    if (!industry.trim()) return 'Industry Sector is required.';
+    if (!foundedYear.trim()) return 'Founded Year is required.';
+    
+    const fYear = parseInt(foundedYear);
+    if (isNaN(fYear) || fYear < 1900 || fYear > new Date().getFullYear()) {
+      return `Please enter a valid Founded Year between 1900 and ${new Date().getFullYear()}.`;
+    }
+
+    if (failedYear.trim()) {
+      const failY = parseInt(failedYear);
+      if (isNaN(failY) || failY < fYear) {
+        return `Failure Year cannot be earlier than Founded Year (${fYear}).`;
+      }
+    }
+    return '';
+  };
+
+  const validateStep1 = () => {
+    setErrorMsg('');
+    if (!description.trim()) return 'Startup Description is required.';
+    if (description.trim().length < 20) return 'Description must be at least 20 characters long.';
+    if (!whyFailed.trim()) return 'Please explain why the startup failed.';
+    if (whyFailed.trim().length < 20) return 'The "Why it failed" explanation must be at least 20 characters long.';
+    if (!majorMistakes.trim()) return 'Major Mistakes are required.';
+    return '';
+  };
+
+  const handleNext = () => {
+    if (currentStep === 0) {
+      const err = validateStep0();
+      if (err) {
+        setErrorMsg(err);
+        return;
+      }
+      setCurrentStep(1);
+    }
+  };
+
+  const handleBack = () => {
+    setErrorMsg('');
+    setCurrentStep(prev => Math.max(0, prev - 1));
+  };
+
+  // Run AI Verification API
+  const handleVerifyWithAI = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const err = validateStep1();
+    if (err) {
+      setErrorMsg(err);
       return;
     }
 
     setErrorMsg('');
     setIsAnalyzing(true);
     setAnalysisStep(0);
+    setVerificationResult(null);
 
-    try {
-      // First, validate the startup against search grounding
-      const valRes = await fetch('/api/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: cleanName, industry: cleanIndustry })
-      });
-      
-      const validation = await valRes.json();
-      if (!validation.isValid) {
-        setErrorMsg(validation.message || 'This company is still active and may not qualify as a failed startup.');
-        setIsAnalyzing(false);
-        return;
-      }
-    } catch (e) {
-      console.error('Validation API error:', e);
-      // If validation call failed completely, let's stop and request retry
-      setErrorMsg('Could not reach the validation server. Please verify your connection and try again.');
-      setIsAnalyzing(false);
-      return;
-    }
-
-    // Advanced automated step sequencing for user delight
+    // Stagger loading indicators
     const stepInterval = setInterval(() => {
       setAnalysisStep((prev) => {
         if (prev < loadingSteps.length - 1) {
@@ -236,166 +208,239 @@ export default function NewProjectModal({ isOpen, onClose, onProjectCreated }: N
           return prev;
         }
       });
-    }, 1300);
+    }, 1100);
 
     try {
-      let rawData;
-      try {
-        const response = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            name,
-            industry,
-            foundedYear: Number(foundedYear),
-            failedYear: Number(failedYear),
-            failureStage,
-            teamSize: Number(teamSize),
-            primaryFailureReason,
-            description,
-            companyStatus: 'Shut Down',
-            strugglingCategory: 'None',
-            userSourceUrl: '',
-            userSourceReasoning: ''
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Analysis request failed on backend node.');
-        }
-
-        rawData = await response.json();
-      } catch (err: any) {
-        console.warn('Backend analyze endpoint failed, using local mock analysis fallback:', err);
-        rawData = generateLocalProjectAnalysis(
-          name,
-          industry,
-          Number(foundedYear),
-          Number(failedYear),
-          failureStage,
-          Number(teamSize),
-          primaryFailureReason,
-          description
-        );
-      }
-      
-      // Map tasks and workspace to complete Project model
-      const customProject: Project = {
-        id: `custom-${Date.now()}`,
-        name: rawData.name || name,
-        tagline: rawData.tagline || `${name} Strategic Pivot`,
-        industry: industry,
-        foundedYear: Number(foundedYear),
-        failedYear: Number(failedYear),
-        failureStage: failureStage,
-        teamSize: Number(teamSize),
-        primaryFailureReason: primaryFailureReason,
-        potentialScore: rawData.potentialScore || 75,
-        revivalPossibility: rawData.revivalPossibility || 80,
-        avatarEmoji: rawData.avatarEmoji || '💡',
-        description: description || `Decentralized rehabilitation of the original ${name} proposal.`,
-        aiAnalysis: rawData.aiAnalysis,
-        companyStatus: companyStatus,
-        strugglingCategory: strugglingCategory,
-        aiConfidence: Math.floor(82 + Math.random() * 15),
-        userSourceUrl: sourceUrl,
-        userSourceReasoning: sourceReasoning,
-        workspace: {
-          projectId: `custom-${Date.now()}`,
-          progress: 0,
-          tasks: (rawData.suggestedTasks || []).map((t: any, index: number) => ({
-            id: `task-${Date.now()}-${index}`,
-            title: t.title,
-            category: t.category,
-            status: 'Pending',
-            priority: t.priority
-          })),
-          notes: [
-            {
-              id: `note-${Date.now()}-init`,
-              title: 'Launch Assessment Profile',
-              content: rawData.aiAnalysis?.summary || 'Rebuild initialized successfully.',
-              createdAt: new Date().toISOString()
-            }
-          ],
-          contributors: [
-            { id: `c-${Date.now()}-1`, name: 'Rohit Badgujar', role: 'AI Engineer', joined: true },
-            { id: `c-${Date.now()}-2`, name: 'Custom Builder', role: 'Developer', joined: false }
-          ],
-          riskMonitor: rawData.riskMonitor || { execution: 50, market: 50, funding: 50 }
-        }
-      };
+      const response = await fetch('/api/startup/validate-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          founders: founders.trim(),
+          country: country.trim(),
+          industry: industry.trim(),
+          foundedYear: parseInt(foundedYear),
+          failedYear: failedYear.trim() ? parseInt(failedYear) : null,
+          currentStatus,
+          teamSize: teamSize.trim() ? parseInt(teamSize) : null,
+          fundingRaised: fundingRaised.trim() || null,
+          description: description.trim(),
+          whyFailed: whyFailed.trim(),
+          majorMistakes: majorMistakes.trim(),
+          evidenceSource: evidenceSource.trim() || null
+        })
+      });
 
       clearInterval(stepInterval);
-      
-      // Delay finishing line slightly to ensure the final step is readable
-      setTimeout(() => {
-        onProjectCreated(customProject);
-        setIsAnalyzing(false);
-        onClose();
-        // Reset states
-        setName('');
-        setIndustry('');
-        setPrimaryFailureReason('');
-        setDescription('');
-        setSourceUrl('');
-        setSourceReasoning('');
-        setCompanyStatus('Shut Down');
-        setStrugglingCategory('None');
-      }, 500);
 
+      let errorDetail = '';
+      if (!response.ok) {
+        try {
+          const errData = await response.json();
+          errorDetail = errData.error || errData.message || '';
+        } catch (e) {
+          // ignore parsing error
+        }
+        throw new Error(errorDetail || `Verification API responded with status code ${response.status}`);
+      }
+
+      const resData = await response.json();
+      setIsAnalyzing(false);
+
+      if (resData.status === 'error') {
+        setErrorMsg(resData.error || 'A verification error occurred.');
+        return;
+      }
+
+      setVerificationResult(resData);
+      setCurrentStep(2); // Go to Verification Report screen
     } catch (err: any) {
       clearInterval(stepInterval);
       setIsAnalyzing(false);
-      setErrorMsg(err.message || 'Severe API route communication error.');
+      setErrorMsg(err.message || 'Communication error with validation server.');
     }
+  };
+
+  // Commit the validated project to state/database
+  const handleFinalSubmit = () => {
+    if (!verificationResult || !verificationResult.report) return;
+
+    // If declaration is needed (unavailable public verification or low/medium confidence), check them
+    const needsDeclaration = verificationResult.status === 'needs_declaration' || 
+                             verificationResult.verificationConfidence !== 'High';
+    
+    if (needsDeclaration && (!declAccuracy || !declUnverified || !declResponsibility)) {
+      setErrorMsg('You must agree to all declaration terms before submitting this unverified case study.');
+      return;
+    }
+
+    const { report } = verificationResult;
+
+    // Create the final robust Project record
+    const newProject: Project = {
+      id: `project-contrib-${Date.now()}`,
+      name: name.trim(),
+      tagline: report.tagline || `${name.trim()} — Defunct ${industry} venture in ${country}`,
+      industry: industry.trim(),
+      foundedYear: parseInt(foundedYear),
+      failedYear: failedYear.trim() ? parseInt(failedYear) : parseInt(foundedYear) + 3,
+      failureStage: currentStatus,
+      teamSize: teamSize.trim() ? parseInt(teamSize) : 5,
+      primaryFailureReason: report.primaryFailureReason || whyFailed.trim(),
+      potentialScore: report.potentialScore || 35,
+      revivalPossibility: report.revivalPossibility || 45,
+      avatarEmoji: report.avatarEmoji || '📉',
+      description: description.trim(),
+      companyStatus: currentStatus,
+      strugglingCategory: 'None',
+      isAIValidatedIdea: false,
+
+      // New Submit Failed Startup fields
+      founders: founders.trim(),
+      majorMistakes: report.keyMistakes || majorMistakes.split('\n').map(m => m.trim()).filter(Boolean),
+      evidenceSource: evidenceSource.trim() || undefined,
+      approvalStatus: 'Pending', // Starts pending admin approval!
+      verificationConfidence: verificationResult.verificationConfidence,
+      verificationDetails: verificationResult.verificationDetails,
+      evidenceStatus: verificationResult.evidenceStatus,
+
+      aiAnalysis: {
+        summary: report.description || description.trim(),
+        keyMistakes: report.keyMistakes || majorMistakes.split('\n').map(m => m.trim()).filter(Boolean),
+        rootCauses: report.rootCauses || {
+          funding: 'Capital exhaustion during premature scaling.',
+          product: 'Feature-heavy architecture without validated usage frequency.',
+          market: 'Overestimating direct consumer market pain magnitude.',
+          execution: 'Operational complexity dragging down profit margins.',
+          timing: 'Ecosystem timing mismatches and heavy burn rates.'
+        },
+        failureDNA: report.failureDNA || [
+          `Founded by ${founders} in ${foundedYear} under ${industry} space.`,
+          `Struggled to gain sustainable units economics on high structural cost.`,
+          `Faced terminal operational headwinds matching ${whyFailed.substring(0, 40)}...`,
+          `Closed down with status "${currentStatus}" in ${failedYear || 'recent years'}.`
+        ],
+        revivalProbability: report.revivalPossibility || 45,
+        marketOpportunity: "Redesigning the model using highly automated, low-asset modern architecture.",
+        newRisks: report.suggestedImprovements ? report.suggestedImprovements.slice(0, 2) : ["Acquisition friction", "Regulatory compliance"],
+        modernAlternatives: report.suggestedImprovements || ["Construct API-first low overhead workflow"],
+        suggestedImprovements: report.suggestedImprovements || ["Pivot to thin SaaS model"],
+        advisoryAnswers: {
+          whatToAvoid: report.keyMistakes?.[0] || 'High pre-revenue payroll drag.',
+          whatToImprove: report.suggestedImprovements?.[0] || 'Customer-led feature rollouts.',
+          modernTechToLeverage: 'Cloud serverless microservices, automated marketing pipelines, Stripe Billing.',
+          changedMarketConditions: 'Ubiquitous low-cost cloud infrastructure reduces initial asset cost to near-$0.',
+          v2ProductVision: report.primaryFailureReason || 'Lean B2B middleware orchestration.'
+        }
+      },
+
+      workspace: {
+        projectId: `project-contrib-${Date.now()}`,
+        progress: 0,
+        tasks: [
+          {
+            id: `task-revival-1-${Date.now()}`,
+            title: `Conduct core post-mortem verification on why ${name} dissolved`,
+            category: 'Research',
+            status: 'Pending',
+            priority: 'High'
+          },
+          {
+            id: `task-revival-2-${Date.now()}`,
+            title: `Draft a lean B2B alternative validating customer purchase commitment`,
+            category: 'Market Validation',
+            status: 'Pending',
+            priority: 'Medium'
+          }
+        ],
+        notes: [
+          {
+            id: `note-contrib-${Date.now()}`,
+            title: 'Submitted Case Study Core Insights',
+            content: `### Original Post-Mortem Description\n${description}\n\n### Primary Failure Causes\n${whyFailed}\n\n### Audit Notes\n- Verified Status: **${verificationResult.evidenceStatus}**\n- Trust Level: **${verificationResult.verificationConfidence}**\n- Confidence Details: *${verificationResult.verificationDetails}*`,
+            createdAt: new Date().toISOString()
+          }
+        ],
+        contributors: [
+          { id: `cnt-1-${Date.now()}`, name: 'Community Contributor', role: 'Researcher', joined: true },
+          { id: `cnt-2-${Date.now()}`, name: 'AI Auditor', role: 'AI Engineer', joined: true }
+        ],
+        riskMonitor: { execution: 50, market: 60, funding: 55 }
+      }
+    };
+
+    onProjectCreated(newProject);
+    resetForm();
+    onClose();
+  };
+
+  const resetForm = () => {
+    setCurrentStep(0);
+    setName('');
+    setFounders('');
+    setCountry('');
+    setIndustry('');
+    setFoundedYear('');
+    setFailedYear('');
+    setCurrentStatus('Failed');
+    setTeamSize('');
+    setFundingRaised('');
+    setDescription('');
+    setWhyFailed('');
+    setMajorMistakes('');
+    setEvidenceSource('');
+    setErrorMsg('');
+    setVerificationResult(null);
+    setDeclAccuracy(false);
+    setDeclUnverified(false);
+    setDeclResponsibility(false);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 min-h-screen flex items-center justify-center bg-black/85 backdrop-blur-md z-50 p-4 overflow-y-auto">
+    <div id="failed-startup-modal" className="fixed inset-0 min-h-screen flex items-center justify-center bg-black/90 backdrop-blur-md z-50 p-4 overflow-y-auto">
       <AnimatePresence mode="wait">
+        
+        {/* VIEW 1: AI VERIFICATION IN PROGRESS */}
         {isAnalyzing ? (
           <motion.div
+            key="analyzing-state"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            className="w-full max-w-xl p-10 rounded-2xl bg-bg-card border border-accent/20 text-center shadow-[0_0_50px_rgba(20,184,166,0.15)] overflow-hidden relative"
+            className="w-full max-w-xl p-10 rounded-3xl bg-bg-card border border-accent/20 text-center shadow-[0_0_50px_rgba(20,184,166,0.15)] overflow-hidden relative"
           >
-            {/* Cinematic background animated glow */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(20,184,166,0.1)_0%,transparent_70%)] animate-[pulse-slow_4s_ease-in-out_infinite]" />
             <div className="absolute top-0 left-[-100%] w-[50%] h-full bg-gradient-to-r from-transparent via-accent/10 to-transparent -skew-x-12 animate-[shimmer_2s_infinite_linear]" />
             
             <div className="relative z-10 py-6 flex flex-col items-center">
               <div className="relative mb-8">
                 <div className="absolute inset-0 rounded-full blur-md bg-accent/40 animate-pulse" />
-                <RefreshCw className="relative w-16 h-16 text-accent stroke-[1] animate-spin" />
+                <RefreshCw className="relative w-16 h-16 text-accent stroke-[1.5] animate-spin" />
               </div>
               
               <h3 className="font-display text-2xl font-bold text-text-primary tracking-tight mb-2">
-                Running Neural Diagnostics
+                Running Trustworthy Verification
               </h3>
               <p className="text-xs text-text-muted font-sans font-bold tracking-widest uppercase mb-10">
-                AI MODEL INFERENCE IN PROGRESS
+                GEMINI 3.5 FLASH AUDIT ENGINE
               </p>
 
-              <div className="w-full bg-bg-elevated border border-border-subtle rounded-xl p-6 mb-8 text-left min-h-[140px] flex flex-col justify-between font-sans text-sm shadow-inner relative overflow-hidden">
+              <div className="w-full bg-bg-elevated border border-border-subtle rounded-2xl p-6 mb-8 text-left min-h-[140px] flex flex-col justify-between font-sans text-sm shadow-inner relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-accent to-transparent opacity-50" />
                 <div>
                   <div className="flex items-center gap-2 text-accent mb-3 font-bold uppercase tracking-wider text-xs">
                     <Sparkles className="w-3 h-3 animate-pulse" />
-                    <span>SYSTEM_STATUS // INGESTING_DATA</span>
+                    <span>VERIFICATION // AUDITING_SUBMISSION</span>
                   </div>
                   <div className="text-text-secondary leading-relaxed font-medium transition-all duration-300">
                     {loadingSteps[analysisStep]}
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[10px] text-text-muted border-t border-border-subtle pt-4 mt-4 font-bold tracking-wider">
-                  <span>STEP {analysisStep + 1} OF {loadingSteps.length}</span>
-                  <span className="animate-pulse">ANALYZING: '{name}'</span>
+                  <span>CROSS-CHECK STEP {analysisStep + 1} OF {loadingSteps.length}</span>
+                  <span className="animate-pulse font-mono">INTEGRITY_OK</span>
                 </div>
               </div>
 
@@ -411,153 +456,533 @@ export default function NewProjectModal({ isOpen, onClose, onProjectCreated }: N
             </div>
           </motion.div>
         ) : (
+          
+          /* VIEW 2: GUIDED FORM & REPORT CARD */
           <motion.div
+            key="wizard-state"
             initial={{ opacity: 0, y: 30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -30 }}
-            className="relative w-full max-w-2xl bg-dark-slate rounded-xl border border-border-subtle shadow-2xl p-6 md:p-8 z-10"
+            className="relative w-full max-w-2xl bg-bg-card rounded-3xl border border-border-subtle shadow-2xl p-6 md:p-8 z-10 overflow-visible"
           >
-            {/* Modal close */}
+            {/* Ambient Background Glow */}
+            <div className="absolute top-0 right-0 w-48 h-48 bg-accent/5 blur-3xl rounded-full pointer-events-none" />
+            
             <button
               onClick={onClose}
-              className="absolute right-4 top-4 p-2 text-slate-500 hover:text-slate-300 rounded hover:bg-white/5 transition-colors"
+              className="absolute right-5 top-5 p-2 text-text-muted hover:text-text-primary rounded-xl hover:bg-bg-elevated transition-all"
             >
               <X className="w-5 h-5" />
             </button>
 
+            {/* Title Block */}
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2.5 rounded bg-electric-indigo/5 border border-electric-indigo/20 text-electric-indigo">
-                <Sparkles className="w-5 h-5" />
+              <div className="p-2.5 rounded-xl bg-accent/10 border border-accent/20 text-accent">
+                <Building className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-display text-xl font-bold text-white">Draft Failure Blueprint</h3>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">VAULT CAPTURE FORM // AI CONVERTIBLE</p>
+                <h3 className="font-display text-xl font-bold text-white">Submit a Failed Startup</h3>
+                <p className="text-xs text-text-muted font-mono mt-0.5">CONTRIBUTE TO COGNITIVE FAILUREVAULT REPOSITORY</p>
               </div>
             </div>
 
+            {/* Progress Indicators */}
+            <div className="flex items-center gap-2 mb-8 bg-bg-elevated/40 border border-border-subtle/50 p-2.5 rounded-xl">
+              {[
+                { label: 'Company Profile' },
+                { label: 'Failure Story' },
+                { label: 'AI Review & Submit' }
+              ].map((step, idx) => {
+                const isActive = idx === currentStep;
+                const isCompleted = idx < currentStep;
+                return (
+                  <React.Fragment key={idx}>
+                    {idx > 0 && (
+                      <div className={`h-[1px] flex-1 ${idx <= currentStep ? 'bg-accent/40' : 'bg-border-subtle'}`} />
+                    )}
+                    <div className="flex items-center gap-2 px-2 py-1">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-mono transition-all ${
+                        isActive 
+                          ? 'bg-accent text-white ring-4 ring-accent/20' 
+                          : isCompleted 
+                            ? 'bg-accent/20 text-accent border border-accent/30' 
+                            : 'bg-bg-elevated text-text-muted border border-border-subtle'
+                      }`}>
+                        {isCompleted ? <Check className="w-3 h-3" /> : idx + 1}
+                      </div>
+                      <span className={`text-[10px] font-sans font-bold uppercase tracking-wider hidden sm:inline ${
+                        isActive ? 'text-text-primary' : 'text-text-muted'
+                      }`}>
+                        {step.label}
+                      </span>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
             {errorMsg && (
-              <div className="mb-5 p-3 rounded border border-red-500/20 bg-red-500/5 text-red-400 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{errorMsg}</span>
+              <div className="mb-6 p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-400 text-xs flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span className="leading-relaxed font-medium">{errorMsg}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4 font-mono text-[11px]">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* STEP 0: BASIC COMPANY PROFILE */}
+            {currentStep === 0 && (
+              <motion.div
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="space-y-5"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                  <div>
+                    <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Startup Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all placeholder:text-text-muted"
+                      placeholder="e.g., Juicero"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Founder(s) *</label>
+                    <input
+                      type="text"
+                      required
+                      value={founders}
+                      onChange={(e) => setFounders(e.target.value)}
+                      className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all placeholder:text-text-muted"
+                      placeholder="e.g., Doug Evans"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                  <div>
+                    <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Country / Market *</label>
+                    <input
+                      type="text"
+                      required
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all placeholder:text-text-muted"
+                      placeholder="e.g., United States"
+                    />
+                  </div>
+
+                  {/* SEARCHABLE INDUSTRY DROPDOWN */}
+                  <div className="relative text-left" ref={dropdownRef}>
+                    <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Industry Sector *</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        value={industry}
+                        onChange={(e) => {
+                          setIndustry(e.target.value);
+                          setSearchQuery(e.target.value);
+                          setDropdownOpen(true);
+                        }}
+                        onFocus={() => {
+                          setDropdownOpen(true);
+                          setSearchQuery(industry);
+                        }}
+                        onKeyDown={handleKeyDown}
+                        className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 pl-10 pr-10 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all placeholder:text-text-muted"
+                        placeholder="Search sector (e.g. AI, ClimateTech...)"
+                      />
+                      <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-text-muted" />
+                      <button
+                        type="button"
+                        onClick={() => setDropdownOpen(!dropdownOpen)}
+                        className="absolute right-3 top-3 p-1 hover:bg-bg-elevated rounded-lg text-text-muted hover:text-text-primary transition-all"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Dropdown Card */}
+                    <AnimatePresence>
+                      {dropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 5 }}
+                          className="absolute w-full mt-2 bg-bg-card border border-border-subtle rounded-xl shadow-2xl z-20 max-h-52 overflow-y-auto overflow-x-hidden font-sans text-xs scrollbar-thin text-left"
+                        >
+                          {filteredSectors.length > 0 ? (
+                            filteredSectors.map((sector, idx) => (
+                              <button
+                                key={sector}
+                                type="button"
+                                onClick={() => handleSectorSelect(sector)}
+                                className={`w-full text-left px-4 py-3 hover:bg-accent/10 hover:text-accent transition-all flex items-center justify-between border-b border-border-subtle/40 last:border-0 ${
+                                  idx === activeIndex ? 'bg-accent/10 text-accent font-semibold' : 'text-text-secondary'
+                                }`}
+                              >
+                                <span>{sector}</span>
+                                {industry === sector && <Check className="w-3.5 h-3.5 text-accent" />}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center text-text-muted font-medium">
+                              No predefined industry matches. Press Enter to use "{searchQuery}"
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+                  <div>
+                    <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Founded Year *</label>
+                    <input
+                      type="number"
+                      required
+                      value={foundedYear}
+                      onChange={(e) => setFoundedYear(e.target.value)}
+                      className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all placeholder:text-text-muted"
+                      placeholder="e.g., 2013"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Failure Year <span className="text-text-muted font-normal">(Optional)</span></label>
+                    <input
+                      type="number"
+                      value={failedYear}
+                      onChange={(e) => setFailedYear(e.target.value)}
+                      className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all placeholder:text-text-muted"
+                      placeholder="e.g., 2017"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Current Status *</label>
+                    <div className="relative">
+                      <select
+                        value={currentStatus}
+                        onChange={(e) => setCurrentStatus(e.target.value)}
+                        className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all appearance-none cursor-pointer pr-10"
+                      >
+                        {STATUS_OPTIONS.map(opt => (
+                          <option key={opt} value={opt} className="bg-bg-card text-text-primary">{opt}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-text-muted pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 1: OPERATIONS & FAILURE STORY */}
+            {currentStep === 1 && (
+              <motion.div
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="space-y-4 text-left"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Team Size <span className="text-text-muted font-normal">(Optional)</span></label>
+                    <input
+                      type="number"
+                      value={teamSize}
+                      onChange={(e) => setTeamSize(e.target.value)}
+                      className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all placeholder:text-text-muted"
+                      placeholder="e.g., 250"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Funding Raised <span className="text-text-muted font-normal">(Optional)</span></label>
+                    <input
+                      type="text"
+                      value={fundingRaised}
+                      onChange={(e) => setFundingRaised(e.target.value)}
+                      className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all placeholder:text-text-muted"
+                      placeholder="e.g., $118M"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-slate-400 uppercase tracking-wider mb-1.5 font-bold">Project/Firm Name *</label>
+                  <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Short Startup Description *</label>
+                  <textarea
+                    required
+                    rows={2}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all leading-relaxed placeholder:text-text-muted"
+                    placeholder="Provide a clean summary of what the company did, its value proposition, and intended scale..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Why did it fail? *</label>
+                  <textarea
+                    required
+                    rows={2}
+                    value={whyFailed}
+                    onChange={(e) => setWhyFailed(e.target.value)}
+                    className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all leading-relaxed placeholder:text-text-muted"
+                    placeholder="e.g., High hardware manufacturing cost, over-engineering, and consumers discovering they could squeeze juice packs with bare hands..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Major Mistakes * <span className="text-text-muted font-normal uppercase">(One per line)</span></label>
+                  <textarea
+                    required
+                    rows={2}
+                    value={majorMistakes}
+                    onChange={(e) => setMajorMistakes(e.target.value)}
+                    className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all leading-relaxed placeholder:text-text-muted font-sans"
+                    placeholder="Manufacturing custom parts before validation.&#10;Fixing high retail pricing ($699).&#10;Arrogant marketing response to complaints."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-text-secondary uppercase tracking-widest text-[10px] font-bold mb-1.5">Sources / Evidence URL <span className="text-text-muted font-normal">(Optional)</span></label>
                   <input
                     type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded p-2.5 text-slate-200 text-xs focus:border-electric-indigo focus:outline-none transition-colors"
-                    placeholder="e.g., BlockSync"
+                    value={evidenceSource}
+                    onChange={(e) => setEvidenceSource(e.target.value)}
+                    className="w-full bg-black/40 border border-border-subtle rounded-xl p-3 text-text-primary text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all placeholder:text-text-muted"
+                    placeholder="e.g., https://www.bloomberg.com/news/articles/2017-04-19/juicero-machine"
                   />
                 </div>
-                <div>
-                  <label className="block text-slate-400 uppercase tracking-wider mb-1.5 font-bold">Industry Sector *</label>
-                  <input
-                    type="text"
-                    required
-                    value={industry}
-                    onChange={(e) => setIndustry(e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded p-2.5 text-slate-200 text-xs focus:border-electric-indigo focus:outline-none transition-colors"
-                    placeholder="e.g., BioTech / Genomics"
-                  />
-                </div>
-              </div>
+              </motion.div>
+            )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-slate-400 uppercase tracking-wider mb-1.5 font-bold">Founded Year</label>
-                  <input
-                    type="number"
-                    value={foundedYear}
-                    onChange={(e) => setFoundedYear(Number(e.target.value))}
-                    className="w-full bg-black/40 border border-white/10 rounded p-2.5 text-slate-200 text-xs focus:border-electric-indigo focus:outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 uppercase tracking-wider mb-1.5 font-bold">Failed Year</label>
-                  <input
-                    type="number"
-                    value={failedYear}
-                    onChange={(e) => setFailedYear(Number(e.target.value))}
-                    className="w-full bg-black/40 border border-white/10 rounded p-2.5 text-slate-200 text-xs focus:border-electric-indigo focus:outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 uppercase tracking-wider mb-1.5 font-bold">Team Size (Max Peak)</label>
-                  <input
-                    type="number"
-                    value={teamSize}
-                    onChange={(e) => setTeamSize(Number(e.target.value))}
-                    className="w-full bg-black/40 border border-white/10 rounded p-2.5 text-slate-200 text-xs focus:border-electric-indigo focus:outline-none transition-colors"
-                  />
-                </div>
-              </div>
+            {/* STEP 2: AI REVIEW, AUDITING REPORT & DECLARATIONS */}
+            {currentStep === 2 && verificationResult && (
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="space-y-4 text-left font-sans"
+              >
+                {/* 1. If Inconsistent: show blocking banner */}
+                {verificationResult.status === 'inconsistent' ? (
+                  <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-400 text-xs flex gap-3">
+                    <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                    <div className="space-y-1.5">
+                      <span className="font-bold">Inconsistent Submission Blocked:</span>
+                      <p className="text-text-secondary leading-relaxed font-medium">
+                        {verificationResult.errorMessage || 'This company appears to still be operating. Please verify whether you are referring to the entire company or a specific product/service.'}
+                      </p>
+                      <p className="text-text-muted text-[10px]">
+                        Reasoning: {verificationResult.verificationDetails}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Trust audit card info */}
+                    <div className="p-5 bg-bg-elevated/40 border border-border-subtle rounded-2xl space-y-3.5 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full blur-2xl" />
+                      
+                      <div className="flex items-center justify-between border-b border-border-subtle/50 pb-3">
+                        <h4 className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-accent" />
+                          AI TRUSTWORTHINESS REPORT
+                        </h4>
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono font-bold text-text-muted">CONFIDENCE:</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-wider uppercase ${
+                            verificationResult.verificationConfidence === 'High' 
+                              ? 'bg-success/10 text-success border border-success/20' 
+                              : verificationResult.verificationConfidence === 'Medium'
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          }`}>
+                            {verificationResult.verificationConfidence}
+                          </span>
+                        </div>
+                      </div>
 
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between items-center text-text-secondary">
+                          <span>Evidence Status:</span>
+                          <span className="font-bold text-text-primary">{verificationResult.evidenceStatus}</span>
+                        </div>
+                        <p className="text-text-muted leading-relaxed font-medium bg-black/30 p-3 rounded-xl border border-border-subtle/50">
+                          {verificationResult.verificationDetails}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Report Preview */}
+                    <div className="border border-border-subtle rounded-2xl overflow-hidden bg-black/20">
+                      <div className="bg-bg-elevated/60 px-4 py-3 border-b border-border-subtle flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold text-text-muted">BLUEPRINT PREVIEW DOSSIER</span>
+                        <span className="text-xs">{verificationResult.report.avatarEmoji || '📉'}</span>
+                      </div>
+                      <div className="p-4 space-y-3 text-xs">
+                        <div>
+                          <h5 className="font-bold text-text-primary text-sm">{name}</h5>
+                          <p className="text-text-secondary text-[11px] italic mt-0.5">{verificationResult.report.tagline}</p>
+                        </div>
+                        <div>
+                          <span className="text-text-muted font-bold text-[10px] uppercase tracking-wider block mb-0.5">Primary Bottleneck:</span>
+                          <p className="text-text-secondary leading-relaxed font-medium bg-bg-card/40 px-3 py-2 border border-border-subtle/40 rounded-lg">{verificationResult.report.primaryFailureReason}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Show declarations if confidence isn't High or status is needs_declaration */}
+                    {(verificationResult.status === 'needs_declaration' || verificationResult.verificationConfidence !== 'High') && (
+                      <div className="bg-yellow-500/5 border border-yellow-500/20 p-4 rounded-xl space-y-3">
+                        <h4 className="text-xs font-bold text-yellow-400 flex items-center gap-1.5 border-b border-yellow-500/10 pb-2 mb-2">
+                          <AlertTriangle className="w-4 h-4" />
+                          UNVERIFIED SUBMISSION DECLARATIONS REQUIRED
+                        </h4>
+
+                        <label className="flex items-start gap-3 cursor-pointer group select-none">
+                          <div className="relative flex items-center mt-0.5">
+                            <input
+                              type="checkbox"
+                              checked={declAccuracy}
+                              onChange={(e) => setDeclAccuracy(e.target.checked)}
+                              className="sr-only"
+                            />
+                            <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${
+                              declAccuracy 
+                                ? 'bg-accent border-accent text-white' 
+                                : 'bg-black/40 border-border-subtle group-hover:border-accent/60'
+                            }`}>
+                              {declAccuracy && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                          </div>
+                          <span className="text-[11px] text-text-secondary leading-relaxed font-medium transition-colors group-hover:text-text-primary">
+                            I confirm that the information I provided is accurate to the best of my knowledge.
+                          </span>
+                        </label>
+
+                        <label className="flex items-start gap-3 cursor-pointer group select-none">
+                          <div className="relative flex items-center mt-0.5">
+                            <input
+                              type="checkbox"
+                              checked={declUnverified}
+                              onChange={(e) => setDeclUnverified(e.target.checked)}
+                              className="sr-only"
+                            />
+                            <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${
+                              declUnverified 
+                                ? 'bg-accent border-accent text-white' 
+                                : 'bg-black/40 border-border-subtle group-hover:border-accent/60'
+                            }`}>
+                              {declUnverified && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                          </div>
+                          <span className="text-[11px] text-text-secondary leading-relaxed font-medium transition-colors group-hover:text-text-primary">
+                            I understand that some details could not be independently verified.
+                          </span>
+                        </label>
+
+                        <label className="flex items-start gap-3 cursor-pointer group select-none">
+                          <div className="relative flex items-center mt-0.5">
+                            <input
+                              type="checkbox"
+                              checked={declResponsibility}
+                              onChange={(e) => setDeclResponsibility(e.target.checked)}
+                              className="sr-only"
+                            />
+                            <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${
+                              declResponsibility 
+                                ? 'bg-accent border-accent text-white' 
+                                : 'bg-black/40 border-border-subtle group-hover:border-accent/60'
+                            }`}>
+                              {declResponsibility && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                          </div>
+                          <span className="text-[11px] text-text-secondary leading-relaxed font-medium transition-colors group-hover:text-text-primary">
+                            I accept responsibility for the information submitted and understand it will undergo admin review.
+                          </span>
+                        </label>
+                      </div>
+                    )}
+                  </>
+                )}
+              </motion.div>
+            )}
+
+            {/* ACTION BUTTONS FOOTER */}
+            <div className="flex justify-between items-center pt-4 border-t border-border-subtle mt-6">
               <div>
-                <label className="block text-slate-400 uppercase tracking-wider mb-1.5 font-bold">Failure Phase Stage</label>
-                <select
-                  value={failureStage}
-                  onChange={(e) => setFailureStage(e.target.value as any)}
-                  className="w-full bg-black/40 border border-white/10 rounded p-2.5 text-slate-355 text-xs focus:border-electric-indigo focus:outline-none transition-colors cursor-pointer text-slate-200"
-                >
-                  <option value="Ideation" className="bg-dark-slate text-slate-205">Ideation Phase</option>
-                  <option value="MVP / Validation" className="bg-dark-slate text-slate-205">MVP / Validation Stage (Post-Release)</option>
-                  <option value="Early Traction" className="bg-dark-slate text-slate-205">Early Traction Series</option>
-                  <option value="Scale" className="bg-dark-slate text-slate-205">Scaling operations</option>
-                  <option value="Mature Operational" className="bg-dark-slate text-slate-205">Mature Operational</option>
-                </select>
+                {currentStep > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="px-4 py-2.5 border border-border-subtle text-text-secondary rounded-xl hover:bg-bg-elevated hover:text-text-primary transition-all cursor-pointer text-xs font-semibold flex items-center gap-1"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back
+                  </button>
+                )}
               </div>
 
-              <div>
-                <label className="block text-slate-400 uppercase tracking-wider mb-1.5 font-bold">Primary Root Failure Reason *</label>
-                <textarea
-                  required
-                  rows={2}
-                  maxLength={180}
-                  value={primaryFailureReason}
-                  onChange={(e) => setPrimaryFailureReason(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded p-2.5 text-slate-200 text-xs focus:border-electric-indigo focus:outline-none transition-colors leading-relaxed"
-                  placeholder="e.g., Catastrophic software stack breach and expensive physical database server fires."
-                />
-                <div className="text-[10px] text-slate-550 text-right mt-1">
-                  CHARACTER LIMIT: {primaryFailureReason.length}/180
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 uppercase tracking-wider mb-1.5 font-bold">Core Product Overview Description</label>
-                <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded p-2.5 text-slate-200 text-xs focus:border-electric-indigo focus:outline-none transition-colors leading-relaxed font-sans"
-                  placeholder="Describe what the product built, how users interacted with it, and the grand vision before systemic issues occurred..."
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+              <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2.5 border border-white/10 text-slate-400 rounded-xl hover:bg-white/5 hover:text-slate-200 transition-all cursor-pointer text-xs uppercase"
+                  className="px-4 py-2.5 border border-transparent text-text-secondary rounded-xl hover:bg-bg-elevated hover:text-text-primary transition-all cursor-pointer text-xs font-semibold"
                 >
-                  Close Input
+                  Cancel
                 </button>
-                <button
-                  type="submit"
-                  id="diagnose-project-btn"
-                  className="px-5 py-2.5 bg-electric-indigo text-white font-display font-bold rounded-xl hover:brightness-110 active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-indigo-500/10 text-xs tracking-wider uppercase"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Diagnose &amp; Index
-                </button>
+
+                {currentStep === 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-sans font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer text-xs active:scale-[0.98]"
+                  >
+                    Next Step
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : currentStep === 1 ? (
+                  <button
+                    type="button"
+                    onClick={handleVerifyWithAI}
+                    className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-sans font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer text-xs active:scale-[0.98] shadow-lg shadow-accent/20"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Verify with AI Mentor
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleFinalSubmit}
+                    disabled={
+                      verificationResult.status === 'inconsistent' ||
+                      ((verificationResult.status === 'needs_declaration' || verificationResult.verificationConfidence !== 'High') && 
+                       (!declAccuracy || !declUnverified || !declResponsibility))
+                    }
+                    className={`px-5 py-2.5 font-sans font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer text-xs ${
+                      (verificationResult.status !== 'inconsistent' && 
+                       ((verificationResult.status !== 'needs_declaration' && verificationResult.verificationConfidence === 'High') || 
+                        (declAccuracy && declUnverified && declResponsibility)))
+                        ? 'bg-accent text-white hover:brightness-110 shadow-lg shadow-accent/20 active:scale-[0.98]'
+                        : 'bg-border-subtle text-text-muted cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    Submit to FailureVault
+                  </button>
+                )}
               </div>
-            </form>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

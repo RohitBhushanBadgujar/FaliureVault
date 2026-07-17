@@ -593,7 +593,7 @@ export default function WelcomeScreen({
         </div>
         <div>
           <button 
-            onClick={() => setIsAuthModalOpen(true)}
+            onClick={onEnter}
             className="px-6 py-2.5 text-sm font-semibold rounded-full bg-accent text-white hover:bg-accent-hover active:scale-95 transition-all shadow-[0_0_20px_rgba(20,184,166,0.3)] hover:shadow-[0_0_30px_rgba(20,184,166,0.5)] cursor-pointer"
           >
             Access Vault
@@ -627,7 +627,7 @@ export default function WelcomeScreen({
 
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
               <motion.button
-                onClick={() => setIsAuthModalOpen(true)}
+                onClick={onEnter}
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 className="group px-8 py-4 rounded-full bg-accent text-white font-sans font-bold text-lg transition-all shadow-[0_0_30px_rgba(20,184,166,0.3)] hover:shadow-[0_0_50px_rgba(20,184,166,0.5)] cursor-pointer flex items-center gap-3 border border-accent/20"
@@ -712,8 +712,8 @@ export default function WelcomeScreen({
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.color} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
                 <div className="relative z-10">
                   <div className="text-4xl mb-6 group-hover:scale-110 transition-transform duration-300 origin-left">{card.icon}</div>
-                  <h3 className="text-xl font-bold mb-3 flex items-center gap-2">
-                    <span className="text-rose-500">❌</span> {card.title}
+                  <h3 className="text-xl font-bold mb-3 text-text-primary">
+                    {card.title}
                   </h3>
                   <p className="text-text-secondary leading-relaxed text-sm md:text-base">{card.desc}</p>
                 </div>
@@ -951,7 +951,7 @@ export default function WelcomeScreen({
               Start diagnosing startup blueprints with AI precision today. Turn other founders' mistakes into your structural moat.
             </motion.p>
             <motion.button
-              onClick={() => setIsAuthModalOpen(true)}
+              onClick={onEnter}
               variants={itemVariants}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -963,201 +963,7 @@ export default function WelcomeScreen({
         </div>
       </section>
 
-      {/* Dynamic Firebase Auth Modal */}
-      <AnimatePresence>
-        {isAuthModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsAuthModalOpen(false)}
-              className="absolute inset-0 bg-[#000]/80 backdrop-blur-md"
-            />
 
-            {/* Modal Body */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", duration: 0.5 }}
-              className="relative w-full max-w-md glass-panel bg-bg-card/95 border border-border-strong rounded-3xl p-8 shadow-2xl overflow-hidden z-10 text-left"
-            >
-              {/* Animated Accent Spotlight */}
-              <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-accent/20 rounded-full blur-[40px] pointer-events-none" />
-
-              {/* Close Button */}
-              <button
-                type="button"
-                onClick={() => setIsAuthModalOpen(false)}
-                className="absolute top-6 right-6 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-
-              {/* Header */}
-              <div className="mb-6 flex items-center gap-3">
-                <div className="p-2.5 bg-accent/10 border border-accent/30 rounded-2xl text-accent">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-xl text-text-primary">Secure Innovator Vault</h3>
-                  <p className="text-xs text-text-muted font-sans font-light mt-0.5">Secure your pivot strategist logs in cloud storage.</p>
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <div className="flex border-b border-border-subtle mb-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthTab('signin');
-                    setAuthError('');
-                  }}
-                  className={`flex-1 pb-3 text-sm font-semibold border-b-2 font-display cursor-pointer transition-colors ${
-                    authTab === 'signin' 
-                      ? 'border-accent text-accent font-bold' 
-                      : 'border-transparent text-text-muted hover:text-text-primary'
-                  }`}
-                >
-                  Sign In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthTab('signup');
-                    setAuthError('');
-                  }}
-                  className={`flex-1 pb-3 text-sm font-semibold border-b-2 font-display cursor-pointer transition-colors ${
-                    authTab === 'signup' 
-                      ? 'border-accent text-accent font-bold' 
-                      : 'border-transparent text-text-muted hover:text-text-primary'
-                  }`}
-                >
-                  Create Account
-                </button>
-              </div>
-
-              {/* Form */}
-              <form onSubmit={handleEmailAuth} className="space-y-4">
-                {authError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs flex items-start gap-2"
-                  >
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{authError}</span>
-                  </motion.div>
-                )}
-
-                {authTab === 'signup' && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-mono uppercase tracking-wider text-text-muted">Full Name</label>
-                    <div className="relative">
-                      <Users className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-text-muted" />
-                      <input
-                        type="text"
-                        placeholder="Ada Lovelace"
-                        value={authName}
-                        onChange={(e) => setAuthName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-bg-elevated border border-border-subtle hover:border-text-muted focus:border-accent focus:bg-bg-card rounded-xl text-sm text-text-primary outline-none transition-all placeholder:text-text-muted"
-                        required={authTab === 'signup'}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono uppercase tracking-wider text-text-muted">Email Address</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-text-muted" />
-                    <input
-                      type="email"
-                      placeholder="you@domain.com"
-                      value={authEmail}
-                      onChange={(e) => setAuthEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-bg-elevated border border-border-subtle hover:border-text-muted focus:border-accent focus:bg-bg-card rounded-xl text-sm text-text-primary outline-none transition-all placeholder:text-text-muted"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono uppercase tracking-wider text-text-muted">Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-text-muted" />
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-bg-elevated border border-border-subtle hover:border-text-muted focus:border-accent focus:bg-bg-card rounded-xl text-sm text-text-primary outline-none transition-all placeholder:text-text-muted"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Primary Button */}
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-3.5 bg-accent hover:bg-accent-hover disabled:bg-accent/40 text-white font-sans font-bold text-sm rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2 shadow-lg"
-                >
-                  {isSubmitting ? (
-                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <LogIn className="w-4.5 h-4.5" />
-                      <span>{authTab === 'signin' ? 'Sign In to Vault' : 'Initialize Vault Profile'}</span>
-                    </>
-                  )}
-                </button>
-              </form>
-
-              {/* Divider */}
-              <div className="my-6 flex items-center justify-between gap-4 text-xs font-mono text-text-muted">
-                <div className="h-[1px] bg-border-subtle flex-1" />
-                <span>OR</span>
-                <div className="h-[1px] bg-border-subtle flex-1" />
-              </div>
-
-              {/* Action grid */}
-              <div className="space-y-3">
-                {/* Google sign-in */}
-                <button
-                  type="button"
-                  onClick={handleGoogleAuth}
-                  disabled={isSubmitting}
-                  className="w-full py-3.5 bg-bg-elevated hover:bg-bg-card border border-border-subtle hover:border-border-strong text-text-primary font-semibold text-sm rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2.5"
-                >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                    <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114A5.516 5.516 0 0 1 8.5 13a5.516 5.516 0 0 1 5.491-5.514c1.42 0 2.704.536 3.684 1.414l3.18-3.18A9.914 9.914 0 0 0 13.991 3c-5.523 0-10 4.477-10 10s4.477 10 10 10c5.77 0 9.806-4.053 9.806-9.971a10.12 10.12 0 0 0-.214-1.744H12.24z" />
-                  </svg>
-                  <span>Continue with Google</span>
-                </button>
-
-                {/* Guest access */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAuthModalOpen(false);
-                    onEnter();
-                  }}
-                  disabled={isSubmitting}
-                  className="w-full py-3 bg-transparent hover:bg-white/5 text-text-muted hover:text-text-primary border border-dashed border-border-subtle rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider"
-                >
-                  <span>Continue as Guest</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Global Footer */}
       <footer className="py-10 text-center border-t border-border-subtle bg-bg-primary relative z-10 flex flex-col items-center justify-center gap-4">

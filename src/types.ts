@@ -17,6 +17,7 @@ export interface Project {
   
   // New Case Study detail fields
   founder?: string;
+  country?: string;
   fundingRaised?: string;
   employeeCount?: number;
   timeline?: { year: string; event: string; status: 'good' | 'neutral' | 'bad' }[];
@@ -27,6 +28,16 @@ export interface Project {
   aiConfidence?: number;
   userSourceUrl?: string;
   userSourceReasoning?: string;
+  isAIValidatedIdea?: boolean;
+
+  // New Submit Failed Startup fields
+  founders?: string;
+  majorMistakes?: string[];
+  evidenceSource?: string;
+  approvalStatus?: 'Pending' | 'Approved' | 'Rejected' | 'Needs Info';
+  verificationConfidence?: 'High' | 'Medium' | 'Low';
+  verificationDetails?: string;
+  evidenceStatus?: 'Verified' | 'Unavailable' | 'Inconsistent';
 }
 
 export interface AIAnalysis {

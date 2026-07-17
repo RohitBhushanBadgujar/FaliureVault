@@ -5,7 +5,7 @@ import {
   Lightbulb, Compass, HelpCircle, Activity, LayoutGrid, Sparkles, 
   BookOpen, AlertTriangle, ShieldCheck, ArrowRight, ChevronDown, 
   Brain, FileText, Users, Award, Briefcase, Play, ArrowDown, HelpCircle as HelpIcon,
-  Sun, Moon, Zap
+  Sun, Moon, Zap, Home
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { Project } from './types';
@@ -220,6 +220,29 @@ export default function App() {
     }
   };
 
+  // Admin Project Update Handler (Approve, Reject, Request Info, Edit, etc)
+  const handleUpdateProject = async (updatedProject: Project) => {
+    // 1. Update project locally in state and localStorage
+    setProjectsList(prev => {
+      const next = prev.map(p => p.id === updatedProject.id ? updatedProject : p);
+      const customOnly = next.filter(p => !PRESEEDED_PROJECTS.some(pre => pre.id === p.id));
+      localStorage.setItem('failurevault_projects', JSON.stringify(customOnly));
+      return next;
+    });
+
+    // 2. Log the activity
+    logActivity(`Admin updated project study "${updatedProject.name}" (Status: ${updatedProject.approvalStatus || 'Approved'}).`);
+
+    // 3. Save to Firebase Firestore if user is authenticated
+    if (firebaseUser) {
+      try {
+        await saveFirebaseProject(firebaseUser.uid, updatedProject);
+      } catch (error) {
+        console.error("Error saving updated project to firestore:", error);
+      }
+    }
+  };
+
   // Subscribe to Firebase Auth
   useEffect(() => {
     setIsAuthInitializing(true);
@@ -419,6 +442,11 @@ export default function App() {
 
   // Map filters beautifully
   const filteredProjects = projectsList.filter(p => {
+    // Only show approved startups unless in admin mode
+    const isApproved = !p.approvalStatus || p.approvalStatus === 'Approved';
+    const isVisible = isApproved || isAdminMode;
+    if (!isVisible) return false;
+
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           p.tagline.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           p.industry.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -892,34 +920,15 @@ export default function App() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                {/* Firebase Authentication Status badge */}
-                {firebaseUser ? (
-                  <div className="flex items-center gap-2 px-3.5 py-2.5 bg-success/10 border border-success/20 rounded-xl text-xs font-mono font-medium text-success text-left">
-                    <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                    <span>SECURE: {firebaseUser.email}</span>
-                    <button 
-                      onClick={handleLogout}
-                      className="ml-2 hover:text-rose-400 text-text-muted transition-colors flex items-center gap-1 cursor-pointer"
-                      title="Sign Out from Secure Session"
-                    >
-                      <LogOut className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 px-3.5 py-2.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-xs font-mono font-medium text-yellow-400 text-left">
-                    <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                    <span>GUEST MODULE</span>
-                    <button 
-                      onClick={() => {
-                        setScreenState('welcome');
-                      }}
-                      className="ml-2 hover:text-white text-text-muted transition-colors flex items-center gap-1 cursor-pointer font-bold underline"
-                      title="Sign In to Save to Database"
-                    >
-                      Sign In
-                    </button>
-                  </div>
-                )}
+                {/* Back to Home Button */}
+                <button
+                  onClick={() => setScreenState('welcome')}
+                  className="cursor-pointer px-4 py-2.5 glass-panel hover:bg-bg-card border-border-subtle hover:border-border-strong text-text-secondary hover:text-text-primary font-sans text-xs font-semibold rounded-xl transition-all flex items-center gap-2"
+                  title="Return to Landing Page"
+                >
+                  <Home className="w-4 h-4 text-accent" />
+                  <span>Back to Home</span>
+                </button>
 
                 {/* Tour */}
                 <button
@@ -929,14 +938,14 @@ export default function App() {
                   <Compass className="w-4 h-4" />
                 </button>
 
-                {/* Draft */}
+                {/* Submit Failed Startup */}
                 <button
                   onClick={() => setIsModalOpen(true)}
                   id="draft-blueprint-btn"
                   className="cursor-pointer px-5 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-white font-sans font-medium text-xs transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(20,184,166,0.2)] hover:shadow-[0_0_25px_rgba(20,184,166,0.4)] hover:scale-105 active:scale-95"
                 >
                   <Plus className="w-4 h-4" />
-                  Draft Idea
+                  Submit Failed Startup
                 </button>
               </div>
             </header>
@@ -1214,7 +1223,7 @@ export default function App() {
                                 setSelectedProjectId(p.id);
                                 setScreenState('project-detail');
                               }}
-                              isAdmin={isAdminMode}
+                              isAdmin={false}
                               onDelete={() => handleDeleteProject(p.id)}
                             />
                           </motion.div>
@@ -1706,6 +1715,7 @@ export default function App() {
         setIsAdminMode={setIsAdminMode}
         projects={projectsList}
         onDeleteProject={handleDeleteProject}
+        onUpdateProject={handleUpdateProject}
       />
       </div>
     </div>
